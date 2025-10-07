@@ -1,33 +1,65 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Redirect, Tabs, useRouter } from 'expo-router';
+import { Pressable, View } from 'react-native';
+import { useAuth } from '../../src/ctx/AuthContext';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function CenterScanButton() {
+  const router = useRouter();
+  return (
+    <Pressable onPress={() => router.push('/scan/capture')}>
+      <View style={{
+        width: 64, height: 64, borderRadius: 32,
+        alignItems:'center', justifyContent:'center',
+        marginBottom: 12, // lifts above bar a bit
+        backgroundColor: '#111'
+      }}>
+        <Ionicons name="camera" size={28} color="#fff" />
+      </View>
+    </Pressable>
+  );
+}
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function TabsLayout() {
+  const { user, loading } = useAuth();
+  if (!loading && !user) return <Redirect href='/' />;
 
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#111' }}>
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color, size }) => (<Ionicons name="home" size={size} color={color} />)
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="scan-placeholder"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: '',
+          tabBarIconStyle: { display: 'none' },
+          tabBarLabel: () => null,
+          tabBarButton: () => <CenterScanButton />,
+        }}
+      />
+      <Tabs.Screen
+        name="routine"
+        options={{
+          title: 'Routine',
+          tabBarIcon: ({ color, size }) => (<Ionicons name="sunny" size={size} color={color} />)
+        }}
+      />
+      <Tabs.Screen
+        name="latest"
+        options={{
+          title: 'Latest',
+          tabBarIcon: ({ color, size }) => (<Ionicons name="medkit" size={size} color={color} />)
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'History',
+          tabBarIcon: ({ color, size }) => (<Ionicons name="time" size={size} color={color} />)
         }}
       />
     </Tabs>
