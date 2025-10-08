@@ -1,39 +1,21 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
 
-type AuthState = {
-  user: any | null;
-  session: any | null;
-  loading: boolean;
-};
+type Ctx = { user: any; loading: boolean; signOut: () => Promise<void> };
+const AuthContext = createContext<Ctx>({ user: null, loading: true, signOut: async () => {} });
 
-const AuthContext = createContext<AuthState>({ user: null, session: null, loading: true });
-
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [state, setState] = useState<AuthState>({ user: null, session: null, loading: true });
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-
-    const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user ?? null;
-      if (mounted) setState({ user, session: data.session, loading: false });
-    };
-    init();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return;
-      setState({ user: session?.user ?? null, session, loading: false });
-    });
-
-    return () => {
-      mounted = false;
-      sub.subscription.unsubscribe();
-    };
+    supabase.auth.getUser().then(({ data }) => { setUser(data.user ?? null); setLoading(false); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
-};
+  async function signOut() { await supabase.auth.signOut(); }
 
+  return <AuthContext.Provider value={{ user, loading, signOut }}>{children}</AuthContext.Provider>;
+}
 export const useAuth = () => useContext(AuthContext);
