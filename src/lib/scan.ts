@@ -78,3 +78,56 @@ export async function waitForScanComplete(scanId: string, timeoutMs = 90_000, in
     await new Promise(r => setTimeout(r, intervalMs));
   }
 }
+
+export async function listScans({ limit = 20, cursor }: { limit?: number; cursor?: string | null } = {}) {
+  // simple keyset pagination using created_at & id
+  let q = supabase
+    .from("scan_sessions")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (cursor) {
+    // cursor is created_at ISO string; fetch older rows
+    q = q.lt("created_at", cursor);
+  }
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data;
+}
+
+export async function latestCompletedScan() {
+  const { data, error } = await supabase
+    .from("scan_sessions")
+    .select("*")
+    .eq("status", "complete")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// Batch sign any storage paths via your edge function
+export async function signStoragePaths(paths: string[]) {
+  if (!paths?.length) return {};
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sign-storage-urls`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ paths }),
+  });
+  if (!res.ok) return {};
+  const json = await res.json();
+  const map: Record<string, string> = {};
+  (json?.results ?? []).forEach((r: any) => { if (r?.path && r?.url) map[r.path] = r.url; });
+  return map;
+}
+
+export function fmtDate(dt?: string) {
+  if (!dt) return "";
+  const d = new Date(dt);
+  return d.toLocaleString();
+}
