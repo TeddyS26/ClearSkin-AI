@@ -241,7 +241,7 @@ export default function Home() {
                   {/* Progress Bar */}
                   <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <View 
-                      className="h-full bg-green-600 rounded-full" 
+                      className="h-full bg-emerald-600 rounded-full" 
                       style={{ width: `${latestScan.oiliness_percent}%` }}
                     />
                   </View>
@@ -272,7 +272,7 @@ export default function Home() {
                   {/* Progress Bar */}
                   <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <View 
-                      className="h-full bg-green-600 rounded-full" 
+                      className="h-full bg-emerald-600 rounded-full" 
                       style={{ width: `${latestScan.pore_health}%` }}
                     />
                   </View>
