@@ -1,0 +1,43 @@
+# 🔗 Links:
+# Source file: https://github.com/obytes/react-native-template-obytes/blob/master/.github/workflows/expo-doctor.yml
+
+# ✍️ Description:
+# This workflow runs the expo doctor command to check if your project dependencies are aligned with the expo sdk version you are using.
+# Can be triggered manually from the Actions tab in your project.
+# Runs Also on pull requests and pushes to the main/master branch, but only if the `package.json` or `package-lock.json` files have been changed.
+
+# 🚨 GITHUB SECRETS REQUIRED: NONE
+
+name: Expo Doctor (expo)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  doctor:
+    name: Expo Doctor (expo)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: 📦 Checkout project repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node + NPM + install deps
+        uses: ./.github/actions/setup-node-npm-install
+
+      - name: 🚑 Run Expo Doctor Checks
+        run: npx expo-doctor@latest
+        continue-on-error: true
+
