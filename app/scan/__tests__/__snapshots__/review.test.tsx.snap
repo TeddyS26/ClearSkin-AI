@@ -1,0 +1,278 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Review should match snapshot 1`] = `
+<RNCSafeAreaView
+  className="flex-1 bg-emerald-50"
+  edges={
+    {
+      "bottom": "off",
+      "left": "off",
+      "right": "off",
+      "top": "additive",
+    }
+  }
+>
+  <RCTScrollView
+    className="flex-1"
+    contentContainerStyle={
+      {
+        "paddingBottom": 100,
+      }
+    }
+  >
+    <View>
+      <View
+        className="px-6 pt-6"
+      >
+        <View
+          className="mb-6"
+        >
+          <Text
+            className="text-2xl font-bold text-gray-900 mb-2"
+          >
+            Review Photos
+          </Text>
+          <Text
+            className="text-base text-gray-600"
+          >
+            Make sure all photos are clear and well-lit
+          </Text>
+        </View>
+        <View
+          className="mb-4"
+        >
+          <View
+            className="flex-row items-center mb-2"
+          >
+            <View
+              style={
+                {
+                  "marginRight": 8,
+                }
+              }
+            >
+              <CheckCircle
+                color="#10B981"
+                size={18}
+                strokeWidth={2.5}
+              />
+            </View>
+            <Text
+              className="text-base font-semibold text-gray-900"
+            >
+              Front View
+            </Text>
+          </View>
+          <View
+            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+          >
+            <Image
+              resizeMode="cover"
+              source={
+                {
+                  "uri": "file:///front.jpg",
+                }
+              }
+              style={
+                {
+                  "height": 240,
+                  "width": "100%",
+                }
+              }
+            />
+          </View>
+        </View>
+        <View
+          className="mb-4"
+        >
+          <View
+            className="flex-row items-center mb-2"
+          >
+            <View
+              style={
+                {
+                  "marginRight": 8,
+                }
+              }
+            >
+              <CheckCircle
+                color="#10B981"
+                size={18}
+                strokeWidth={2.5}
+              />
+            </View>
+            <Text
+              className="text-base font-semibold text-gray-900"
+            >
+              Left View
+            </Text>
+          </View>
+          <View
+            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+          >
+            <Image
+              resizeMode="cover"
+              source={
+                {
+                  "uri": "file:///left.jpg",
+                }
+              }
+              style={
+                {
+                  "height": 240,
+                  "width": "100%",
+                }
+              }
+            />
+          </View>
+        </View>
+        <View
+          className="mb-4"
+        >
+          <View
+            className="flex-row items-center mb-2"
+          >
+            <View
+              style={
+                {
+                  "marginRight": 8,
+                }
+              }
+            >
+              <CheckCircle
+                color="#10B981"
+                size={18}
+                strokeWidth={2.5}
+              />
+            </View>
+            <Text
+              className="text-base font-semibold text-gray-900"
+            >
+              Right View
+            </Text>
+          </View>
+          <View
+            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+          >
+            <Image
+              resizeMode="cover"
+              source={
+                {
+                  "uri": "file:///right.jpg",
+                }
+              }
+              style={
+                {
+                  "height": 240,
+                  "width": "100%",
+                }
+              }
+            />
+          </View>
+        </View>
+        <View
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          className="bg-emerald-500 py-5 rounded-2xl items-center mb-4 shadow-sm flex-row justify-center active:opacity-90"
+          collapsable={false}
+          focusable={true}
+          onBlur={[Function]}
+          onClick={[Function]}
+          onFocus={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+        >
+          <View
+            style={
+              {
+                "marginRight": 8,
+              }
+            }
+          >
+            <Sparkles
+              color="#FFFFFF"
+              size={22}
+              strokeWidth={2}
+            />
+          </View>
+          <Text
+            className="text-white font-bold text-lg"
+          >
+            Start Analysis
+          </Text>
+        </View>
+        <View
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          className="bg-white border-2 border-gray-200 py-5 rounded-2xl items-center flex-row justify-center active:opacity-90"
+          collapsable={false}
+          focusable={true}
+          onBlur={[Function]}
+          onClick={[Function]}
+          onFocus={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+        >
+          <View
+            style={
+              {
+                "marginRight": 8,
+              }
+            }
+          >
+            <RotateCcw
+              color="#6B7280"
+              size={20}
+            />
+          </View>
+          <Text
+            className="text-gray-700 font-semibold text-base"
+          >
+            Retake Photos
+          </Text>
+        </View>
+      </View>
+    </View>
+  </RCTScrollView>
+</RNCSafeAreaView>
+`;

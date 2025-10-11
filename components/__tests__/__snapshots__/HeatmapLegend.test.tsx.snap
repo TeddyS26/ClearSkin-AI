@@ -1,0 +1,249 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HeatmapLegend should match snapshot for breakouts mode 1`] = `
+<View
+  className="mt-2"
+>
+  <View
+    className="flex-row items-center justify-between mb-2"
+  >
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Good
+    </Text>
+    <View
+      className="flex-row flex-1 mx-2 h-2 rounded-full overflow-hidden"
+    >
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(0,200,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,215,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,140,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,0,0,0.5)",
+          }
+        }
+      />
+    </View>
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Severe
+    </Text>
+  </View>
+  <Text
+    className="text-xs text-gray-500 text-center"
+  >
+    Green = clear, Red = more breakouts
+  </Text>
+</View>
+`;
+
+exports[`HeatmapLegend should match snapshot for dryness mode 1`] = `
+<View
+  className="mt-2"
+>
+  <View
+    className="flex-row items-center justify-between mb-2"
+  >
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Good
+    </Text>
+    <View
+      className="flex-row flex-1 mx-2 h-2 rounded-full overflow-hidden"
+    >
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(0,200,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,215,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,140,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,0,0,0.5)",
+          }
+        }
+      />
+    </View>
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Severe
+    </Text>
+  </View>
+  <Text
+    className="text-xs text-gray-500 text-center"
+  >
+    Green = hydrated, Red = very dry
+  </Text>
+</View>
+`;
+
+exports[`HeatmapLegend should match snapshot for oiliness mode 1`] = `
+<View
+  className="mt-2"
+>
+  <View
+    className="flex-row items-center justify-between mb-2"
+  >
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Good
+    </Text>
+    <View
+      className="flex-row flex-1 mx-2 h-2 rounded-full overflow-hidden"
+    >
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(0,200,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,215,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,140,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,0,0,0.5)",
+          }
+        }
+      />
+    </View>
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Severe
+    </Text>
+  </View>
+  <Text
+    className="text-xs text-gray-500 text-center"
+  >
+    Green = less oily, Red = very oily
+  </Text>
+</View>
+`;
+
+exports[`HeatmapLegend should match snapshot for redness mode 1`] = `
+<View
+  className="mt-2"
+>
+  <View
+    className="flex-row items-center justify-between mb-2"
+  >
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Good
+    </Text>
+    <View
+      className="flex-row flex-1 mx-2 h-2 rounded-full overflow-hidden"
+    >
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(0,200,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,215,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,140,0,0.5)",
+          }
+        }
+      />
+      <View
+        className="flex-1"
+        style={
+          {
+            "backgroundColor": "rgba(255,0,0,0.5)",
+          }
+        }
+      />
+    </View>
+    <Text
+      className="text-xs text-gray-600 font-medium"
+    >
+      Severe
+    </Text>
+  </View>
+  <Text
+    className="text-xs text-gray-500 text-center"
+  >
+    Green = low redness, Red = high redness
+  </Text>
+</View>
+`;

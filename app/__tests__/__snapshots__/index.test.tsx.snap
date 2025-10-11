@@ -1,0 +1,133 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Welcome should match snapshot 1`] = `
+<RNCSafeAreaView
+  className="flex-1 bg-emerald-50"
+  edges={
+    {
+      "bottom": "off",
+      "left": "off",
+      "right": "off",
+      "top": "additive",
+    }
+  }
+>
+  <View
+    className="flex-1 items-center justify-center px-6"
+  >
+    <View
+      className="items-center mb-16"
+    >
+      <View
+        className="w-24 h-24 bg-emerald-500 rounded-3xl items-center justify-center mb-6 shadow-lg"
+      >
+        <Sparkles
+          color="#FFFFFF"
+          size={48}
+          strokeWidth={2.5}
+        />
+      </View>
+      <Text
+        className="text-5xl font-bold text-gray-900 mb-3"
+      >
+        ClearSkin AI
+      </Text>
+      <Text
+        className="text-gray-600 text-lg text-center px-8 leading-6"
+      >
+        Your personal AI-powered skin analysis companion
+      </Text>
+    </View>
+    <View
+      className="w-full max-w-md px-6"
+    >
+      <Link
+        asChild={true}
+        href="/auth/sign-up"
+      >
+        <View
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          className="w-full bg-emerald-500 py-5 rounded-2xl items-center mb-4 shadow-sm active:opacity-90"
+          collapsable={false}
+          focusable={true}
+          onBlur={[Function]}
+          onClick={[Function]}
+          onFocus={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+        >
+          <Text
+            className="text-white text-lg font-semibold"
+          >
+            Get Started
+          </Text>
+        </View>
+      </Link>
+      <Link
+        asChild={true}
+        href="/auth/sign-in"
+      >
+        <View
+          accessibilityState={
+            {
+              "busy": undefined,
+              "checked": undefined,
+              "disabled": undefined,
+              "expanded": undefined,
+              "selected": undefined,
+            }
+          }
+          accessibilityValue={
+            {
+              "max": undefined,
+              "min": undefined,
+              "now": undefined,
+              "text": undefined,
+            }
+          }
+          accessible={true}
+          className="w-full bg-white border-2 border-emerald-200 py-5 rounded-2xl items-center active:opacity-90"
+          collapsable={false}
+          focusable={true}
+          onBlur={[Function]}
+          onClick={[Function]}
+          onFocus={[Function]}
+          onResponderGrant={[Function]}
+          onResponderMove={[Function]}
+          onResponderRelease={[Function]}
+          onResponderTerminate={[Function]}
+          onResponderTerminationRequest={[Function]}
+          onStartShouldSetResponder={[Function]}
+        >
+          <Text
+            className="text-emerald-600 text-lg font-semibold"
+          >
+            I already have an account
+          </Text>
+        </View>
+      </Link>
+    </View>
+  </View>
+</RNCSafeAreaView>
+`;

@@ -86,7 +86,7 @@ export default function SignIn() {
             </Pressable>
 
             <Text className="text-center text-base text-gray-600 mt-4">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/auth/sign-up" className="text-emerald-600 font-semibold">
                 Sign up
               </Link>

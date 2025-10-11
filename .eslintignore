@@ -1,0 +1,13 @@
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+coverage/
+*.config.js
+jest.setup.js
+__mocks__/
+**/*.test.ts
+**/*.test.tsx
+**/__tests__/
+
