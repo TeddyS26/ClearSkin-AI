@@ -1,72 +1,132 @@
-import { useEffect, useState } from "react";
-import { View, Text, Image, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Text, FlatList, Image, Pressable, ActivityIndicator, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
-import { latestCompletedScan, signStoragePaths } from "../../src/lib/scan";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { listScans, signStoragePaths, fmtDate } from "../../src/lib/scan";
+import { Calendar, TrendingUp } from "lucide-react-native";
 
-export default function Latest() {
-  const [row, setRow] = useState<any>(null);
-  const [frontUrl, setFrontUrl] = useState<string | null>(null);
+type Row = any;
+
+export default function History() {
+  const [items, setItems] = useState<Row[]>([]);
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
   const router = useRouter();
+
+  const fetchPage = useCallback(async (next?: boolean) => {
+    const data = await listScans({ limit: 20, cursor: next ? cursor : undefined });
+    if (next) setItems(prev => [...prev, ...data]);
+    else setItems(data);
+    // set new cursor to last item's created_at
+    const last = data.at(-1);
+    setCursor(last?.created_at ?? null);
+
+    // sign thumbnails for new rows
+    const paths = data.map((r: Row) => r.front_path).filter(Boolean);
+    const map = await signStoragePaths(paths);
+    setThumbs(prev => ({ ...prev, ...map }));
+  }, [cursor]);
 
   useEffect(() => {
     (async () => {
-      try {
-        const r = await latestCompletedScan();
-        setRow(r);
-        if (r?.front_path) {
-          const map = await signStoragePaths([r.front_path]);
-          setFrontUrl(map[r.front_path] ?? null);
-        }
-      } finally {
-        setLoading(false);
-      }
+      try { await fetchPage(false); } finally { setLoading(false); }
     })();
   }, []);
 
-  if (loading) return <View className="flex-1 items-center justify-center bg-white"><ActivityIndicator /></View>;
-  if (!row) {
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchPage(false);
+    setRefreshing(false);
+  }, [fetchPage]);
+
+  if (loading) {
     return (
-      <View className="flex-1 items-center justify-center p-6 bg-white">
-        <Text className="text-lg mb-2">No scans yet</Text>
-        <Text className="text-gray-600 text-center mb-6">Start your first scan to see your latest results here.</Text>
-        <Pressable onPress={() => router.push("/scan/capture")} className="bg-emerald-600 px-5 py-3 rounded-xl">
-          <Text className="text-white font-semibold">Start a scan</Text>
-        </Pressable>
-      </View>
+      <SafeAreaView className="flex-1 items-center justify-center bg-emerald-50" edges={["top"]}>
+        <ActivityIndicator size="large" color="#10B981" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!items.length) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center p-6 bg-emerald-50" edges={["top"]}>
+        <View className="bg-gray-100 p-6 rounded-full mb-6">
+          <Calendar size={48} color="#10B981" strokeWidth={1.5} />
+        </View>
+        <Text className="text-xl font-semibold text-gray-900 mb-2">No history yet</Text>
+        <Text className="text-gray-600 text-center text-base">
+          Run your first scan and it will appear here.
+        </Text>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView className="flex-1 bg-white p-6" contentContainerStyle={{ paddingBottom: 32 }}>
-      <Text className="text-2xl font-semibold mb-4">Latest Result</Text>
-
-      {frontUrl && (
-        <Image source={{ uri: frontUrl }} style={{ width: "100%", height: 260, borderRadius: 16, marginBottom: 14 }} />
-      )}
-
-      <View className="mb-6">
-        <Text>Skin Score: {row.skin_score ?? "—"}/100</Text>
-        <Text>Potential: {row.skin_potential ?? "—"}/100</Text>
-        <Text>Health: {row.skin_health_percent ?? "—"}%</Text>
-        <Text>Type: {row.skin_type ?? "unknown"}</Text>
-      </View>
-
-      <View className="mb-6">
-        <Text className="font-semibold mb-2">Conditions</Text>
-        <Text>Breakouts: {row.breakout_level}</Text>
-        <Text>Acne-prone: {row.acne_prone_level}</Text>
-        <Text>Redness: {row.redness_percent ?? "—"}%</Text>
-        <Text>Oiliness: {row.oiliness_percent ?? "—"}%</Text>
-        <Text>Pore health: {row.pore_health ?? "—"}/100</Text>
-      </View>
-
-      <Pressable
-        onPress={() => router.push({ pathname: "/scan/result", params: { id: row.id } })}
-        className="bg-black py-4 rounded-xl items-center"
-      >
-        <Text className="text-white font-semibold">Open full report</Text>
-      </Pressable>
-    </ScrollView>
+    <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
+      <FlatList
+      className="flex-1"
+      data={items}
+      keyExtractor={(item) => item.id}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />}
+      contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
+      ListHeaderComponent={
+        <View className="mb-6">
+          <Text className="text-2xl font-bold text-gray-900 mb-1">Scan History</Text>
+          <Text className="text-sm text-gray-600">Track your skin journey over time</Text>
+        </View>
+      }
+      renderItem={({ item }) => {
+        const thumb = thumbs[item.front_path];
+        return (
+          <Pressable
+            onPress={() => router.push({ pathname: "/scan/result", params: { id: item.id } })}
+            className="flex-row items-center mb-4 bg-white rounded-2xl shadow-sm p-4 active:opacity-90 border border-gray-100"
+            android_ripple={{ color: "#10B98120" }}
+          >
+            <View className="w-20 h-20 rounded-2xl overflow-hidden mr-4 bg-gray-100">
+              {thumb ? (
+                <Image source={{ uri: thumb }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+              ) : (
+                <View className="flex-1 items-center justify-center">
+                  <TrendingUp size={24} color="#9CA3AF" />
+                </View>
+              )}
+            </View>
+            <View className="flex-1">
+              <View className="flex-row items-center mb-1">
+                <View className="bg-emerald-100 px-3 py-1 rounded-full mr-2">
+                  <Text className="text-emerald-700 font-bold text-sm">
+                    {item.skin_score ?? "—"}/100
+                  </Text>
+                </View>
+                <View className={`px-2 py-1 rounded ${item.status === 'complete' ? 'bg-green-100' : 'bg-yellow-100'}`}>
+                  <Text className={`text-xs font-semibold ${item.status === 'complete' ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {item.status}
+                  </Text>
+                </View>
+              </View>
+              <Text className="text-gray-600 text-sm mb-1">
+                {item.skin_type ? `${item.skin_type} skin` : 'Skin analysis'}
+              </Text>
+              <Text className="text-gray-500 text-xs">{fmtDate(item.created_at)}</Text>
+            </View>
+          </Pressable>
+        );
+      }}
+      onEndReachedThreshold={0.6}
+      onEndReached={() => {
+        if (cursor) fetchPage(true).catch(() => {});
+      }}
+      ListFooterComponent={() => 
+        cursor ? (
+          <View className="py-4">
+            <ActivityIndicator size="small" color="#10B981" />
+          </View>
+        ) : null
+      }
+      />
+    </SafeAreaView>
   );
 }

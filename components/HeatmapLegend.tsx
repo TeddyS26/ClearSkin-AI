@@ -11,18 +11,18 @@ export default function HeatmapLegend({ mode }: { mode: "breakouts"|"oiliness"|"
   })();
 
   return (
-    <View>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 4 }}>
-        <Text style={{ fontSize: 12, color: "#4B5563" }}>Good</Text>
-        <View style={{ flexDirection: "row", flex: 1, marginHorizontal: 8, height: 8, borderRadius: 9999, overflow: "hidden" }}>
-          <View style={{ flex: 1, backgroundColor: "rgba(0,200,0,0.4)" }} />
-          <View style={{ flex: 1, backgroundColor: "rgba(255,215,0,0.4)" }} />
-          <View style={{ flex: 1, backgroundColor: "rgba(255,140,0,0.4)" }} />
-          <View style={{ flex: 1, backgroundColor: "rgba(255,0,0,0.4)" }} />
+    <View className="mt-2">
+      <View className="flex-row items-center justify-between mb-2">
+        <Text className="text-xs text-gray-600 font-medium">Good</Text>
+        <View className="flex-row flex-1 mx-2 h-2 rounded-full overflow-hidden">
+          <View className="flex-1" style={{ backgroundColor: "rgba(0,200,0,0.5)" }} />
+          <View className="flex-1" style={{ backgroundColor: "rgba(255,215,0,0.5)" }} />
+          <View className="flex-1" style={{ backgroundColor: "rgba(255,140,0,0.5)" }} />
+          <View className="flex-1" style={{ backgroundColor: "rgba(255,0,0,0.5)" }} />
         </View>
-        <Text style={{ fontSize: 12, color: "#4B5563" }}>Severe</Text>
+        <Text className="text-xs text-gray-600 font-medium">Severe</Text>
       </View>
-      <Text style={{ fontSize: 12, color: "#6B7280" }}>{label}</Text>
+      <Text className="text-xs text-gray-500 text-center">{label}</Text>
     </View>
   );
 }
