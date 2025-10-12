@@ -42,6 +42,8 @@ export default function History() {
   useEffect(() => {
     if (!user) return;
 
+    let mounted = true;
+
     const channel = supabase
       .channel('history_scan_changes')
       .on(
@@ -52,17 +54,34 @@ export default function History() {
           table: 'scan_sessions',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
+        async (payload) => {
           // When a scan is inserted or updated, refresh the data
-          fetchPage(false).catch(() => {});
+          if (mounted) {
+            try {
+              const data = await listScans({ limit: 20, cursor: undefined });
+              if (mounted) {
+                setItems(data);
+                const last = data.at(-1);
+                setCursor(last?.created_at ?? null);
+                const paths = data.map((r: Row) => r.front_path).filter(Boolean);
+                const map = await signStoragePaths(paths);
+                if (mounted) {
+                  setThumbs(prev => ({ ...prev, ...map }));
+                }
+              }
+            } catch (err) {
+              // Silently fail if component unmounted
+            }
+          }
         }
       )
       .subscribe();
 
     return () => {
+      mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [user, fetchPage]);
+  }, [user]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
