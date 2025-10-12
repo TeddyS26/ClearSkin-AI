@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getScan } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
 import HeatmapOverlay from "../../components/HeatmapOverlay";
 import HeatmapLegend from "../../components/HeatmapLegend";
-import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package } from "lucide-react-native";
+import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package, ArrowLeft } from "lucide-react-native";
 
 type Mode = "breakouts" | "oiliness" | "dryness" | "redness";
 const MODES: Mode[] = ["breakouts", "oiliness", "dryness", "redness"];
@@ -29,6 +29,7 @@ async function signFrontPath(frontPath?: string | null) {
 
 export default function Result() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [row, setRow] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [frontUrl, setFrontUrl] = useState<string | null>(null);
@@ -68,6 +69,16 @@ export default function Result() {
     <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
       <View className="px-6 pt-6">
+        {/* Back Button */}
+        <Pressable
+          onPress={() => router.push("/(tabs)/history")}
+          className="flex-row items-center mb-4 active:opacity-60"
+          android_ripple={{ color: "#10B98120" }}
+        >
+          <ArrowLeft size={24} color="#10B981" strokeWidth={2.5} />
+          <Text className="text-emerald-600 font-semibold text-base ml-1">Back</Text>
+        </Pressable>
+
         <Text className="text-2xl font-bold text-gray-900 mb-1">Your Results</Text>
         <Text className="text-sm text-gray-600 mb-6">Complete skin analysis and recommendations</Text>
 
