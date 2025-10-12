@@ -40,19 +40,21 @@ export default function HeatmapOverlay({ photoUri, overlays, which = "front", mo
     <View style={styles.wrap}>
       <Image source={{ uri: photoUri }} style={styles.img} resizeMode="cover" />
       <Svg style={StyleSheet.absoluteFill as any} viewBox="0 0 100 100" preserveAspectRatio="none">
-        {polys.map((poly, i) => {
-          const fill = bucketToColor(indexToBucket(i));
-          const points = poly.map(([x, y]) => `${x},${y}`).join(" ");
-          return (
-            <Polygon
-              key={i}
-              points={points}
-              fill={fill}
-              stroke="rgba(0,0,0,0.25)"    // subtle outline to read shapes
-              strokeWidth={0.6}
-            />
-          );
-        })}
+        {polys
+          .filter((poly) => Array.isArray(poly) && poly.length > 0)
+          .map((poly, i) => {
+            const fill = bucketToColor(indexToBucket(i));
+            const points = poly.map(([x, y]) => `${x},${y}`).join(" ");
+            return (
+              <Polygon
+                key={i}
+                points={points}
+                fill={fill}
+                stroke="rgba(0,0,0,0.25)"    // subtle outline to read shapes
+                strokeWidth={0.6}
+              />
+            );
+          })}
       </Svg>
     </View>
   );
