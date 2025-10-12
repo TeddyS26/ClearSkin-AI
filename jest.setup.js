@@ -26,6 +26,14 @@ jest.mock("expo-router", () => ({
   },
 }));
 
+// Mock react-native-safe-area-context
+jest.mock("react-native-safe-area-context", () => ({
+  SafeAreaView: require("react-native").View,
+  SafeAreaProvider: require("react-native").View,
+  useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+  useSafeAreaFrame: () => ({ x: 0, y: 0, width: 390, height: 844 }),
+}));
+
 // Mock expo-file-system
 jest.mock("expo-file-system/legacy", () => ({
   readAsStringAsync: jest.fn(),

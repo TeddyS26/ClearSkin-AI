@@ -1,15 +1,12 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`Review should match snapshot 1`] = `
-<RNCSafeAreaView
+<View
   className="flex-1 bg-emerald-50"
   edges={
-    {
-      "bottom": "off",
-      "left": "off",
-      "right": "off",
-      "top": "additive",
-    }
+    [
+      "top",
+    ]
   }
 >
   <RCTScrollView
@@ -64,7 +61,37 @@ exports[`Review should match snapshot 1`] = `
             </Text>
           </View>
           <View
-            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 active:opacity-90"
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            testID="image-front"
           >
             <Image
               resizeMode="cover"
@@ -108,7 +135,37 @@ exports[`Review should match snapshot 1`] = `
             </Text>
           </View>
           <View
-            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 active:opacity-90"
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            testID="image-left"
           >
             <Image
               resizeMode="cover"
@@ -152,7 +209,37 @@ exports[`Review should match snapshot 1`] = `
             </Text>
           </View>
           <View
-            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100"
+            accessibilityState={
+              {
+                "busy": undefined,
+                "checked": undefined,
+                "disabled": undefined,
+                "expanded": undefined,
+                "selected": undefined,
+              }
+            }
+            accessibilityValue={
+              {
+                "max": undefined,
+                "min": undefined,
+                "now": undefined,
+                "text": undefined,
+              }
+            }
+            accessible={true}
+            className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 active:opacity-90"
+            collapsable={false}
+            focusable={true}
+            onBlur={[Function]}
+            onClick={[Function]}
+            onFocus={[Function]}
+            onResponderGrant={[Function]}
+            onResponderMove={[Function]}
+            onResponderRelease={[Function]}
+            onResponderTerminate={[Function]}
+            onResponderTerminationRequest={[Function]}
+            onStartShouldSetResponder={[Function]}
+            testID="image-right"
           >
             <Image
               resizeMode="cover"
@@ -274,5 +361,5 @@ exports[`Review should match snapshot 1`] = `
       </View>
     </View>
   </RCTScrollView>
-</RNCSafeAreaView>
+</View>
 `;

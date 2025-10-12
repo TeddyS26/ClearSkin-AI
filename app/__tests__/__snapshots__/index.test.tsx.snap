@@ -1,15 +1,12 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`Welcome should match snapshot 1`] = `
-<RNCSafeAreaView
+<View
   className="flex-1 bg-emerald-50"
   edges={
-    {
-      "bottom": "off",
-      "left": "off",
-      "right": "off",
-      "top": "additive",
-    }
+    [
+      "top",
+    ]
   }
 >
   <View
@@ -129,5 +126,5 @@ exports[`Welcome should match snapshot 1`] = `
       </Link>
     </View>
   </View>
-</RNCSafeAreaView>
+</View>
 `;
