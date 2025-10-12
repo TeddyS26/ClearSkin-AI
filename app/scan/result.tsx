@@ -11,20 +11,38 @@ import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package, ArrowLeft } from "
 type Mode = "breakouts" | "oiliness" | "dryness" | "redness";
 const MODES: Mode[] = ["breakouts", "oiliness", "dryness", "redness"];
 
-// Helper: request a signed URL for the front photo from your Edge Function
-async function signFrontPath(frontPath?: string | null) {
-  if (!frontPath) return null;
+type PhotoView = "front" | "left" | "right";
+const PHOTO_VIEWS: PhotoView[] = ["front", "left", "right"];
+const PHOTO_LABELS: Record<PhotoView, string> = {
+  front: "Front",
+  left: "Left",
+  right: "Right"
+};
+
+// Helper: request signed URLs for all 3 photos from your Edge Function
+async function signPhotoPaths(paths: { front?: string | null; left?: string | null; right?: string | null }) {
+  const pathsToSign = [paths.front, paths.left, paths.right].filter(Boolean) as string[];
+  if (pathsToSign.length === 0) return { front: null, left: null, right: null };
+  
   const url = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sign-storage-urls`;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
+  
   const res = await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ paths: [frontPath] }),
+    body: JSON.stringify({ paths: pathsToSign }),
   });
-  if (!res.ok) return null;
+  
+  if (!res.ok) return { front: null, left: null, right: null };
   const json = await res.json();
-  return json?.results?.[0]?.url ?? null;
+  const results = json?.results ?? [];
+  
+  return {
+    front: paths.front ? results[0]?.url ?? null : null,
+    left: paths.left ? results[1]?.url ?? null : null,
+    right: paths.right ? results[2]?.url ?? null : null,
+  };
 }
 
 export default function Result() {
@@ -32,16 +50,25 @@ export default function Result() {
   const router = useRouter();
   const [row, setRow] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [frontUrl, setFrontUrl] = useState<string | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<{ front: string | null; left: string | null; right: string | null }>({ 
+    front: null, 
+    left: null, 
+    right: null 
+  });
   const [mode, setMode] = useState<Mode>("breakouts");
+  const [photoView, setPhotoView] = useState<PhotoView>("front");
 
   useEffect(() => {
     (async () => {
       try {
         const r = await getScan(id!);
         setRow(r);
-        const signed = await signFrontPath(r.front_path);
-        setFrontUrl(signed);
+        const urls = await signPhotoPaths({
+          front: r.front_path,
+          left: r.left_path,
+          right: r.right_path
+        });
+        setPhotoUrls(urls);
       } catch (e: any) {
         setErr(e.message ?? String(e));
       }
@@ -164,7 +191,7 @@ export default function Result() {
         </View>
 
         {/* Heatmaps */}
-        {frontUrl && row?.overlays && (
+        {(photoUrls.front || photoUrls.left || photoUrls.right) && row?.overlays && (
           <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100">
             <View className="flex-row items-center mb-4">
               <View style={{ marginRight: 8 }}>
@@ -173,29 +200,64 @@ export default function Result() {
               <Text className="text-xl font-bold text-gray-900">Heatmaps</Text>
             </View>
             
-            <View className="flex-row flex-wrap gap-2 mb-4">
+            {/* Heatmap Mode Filter (Breakouts, Oiliness, etc.) */}
+            <View className="flex-row gap-1.5 mb-3">
               {MODES.map((m) => (
                 <Pressable
                   key={m}
                   onPress={() => setMode(m)}
-                  className={`px-4 py-2 rounded-full ${mode === m ? "bg-emerald-500" : "bg-gray-100"}`}
+                  className={`flex-1 px-2 py-2.5 rounded-xl ${mode === m ? "bg-emerald-500" : "bg-gray-100"}`}
                   android_ripple={{ color: "#10B98120" }}
                 >
-                  <Text className={`text-sm font-semibold capitalize ${mode === m ? "text-white" : "text-gray-700"}`}>
+                  <Text className={`text-xs font-semibold text-center capitalize ${mode === m ? "text-white" : "text-gray-700"}`}>
                     {m}
                   </Text>
                 </Pressable>
               ))}
             </View>
-            
-            <View className="rounded-2xl overflow-hidden mb-4">
-              <HeatmapOverlay
-                photoUri={frontUrl}
-                overlays={row.overlays}
-                which="front"
-                mode={mode}
-              />
+
+            {/* Photo View Selector (Front, Left, Right) */}
+            <View className="flex-row bg-gray-100 rounded-xl p-1 mb-4">
+              {PHOTO_VIEWS.map((view) => (
+                <Pressable
+                  key={view}
+                  onPress={() => setPhotoView(view)}
+                  className={`flex-1 py-2 rounded-lg ${photoView === view ? "bg-white" : ""}`}
+                  style={photoView === view ? {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                    elevation: 2
+                  } : undefined}
+                  android_ripple={{ color: "#10B98120" }}
+                >
+                  <Text className={`text-sm font-semibold text-center ${photoView === view ? "text-emerald-600" : "text-gray-500"}`}>
+                    {PHOTO_LABELS[view]}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
+            
+            {/* Heatmap Overlay */}
+            {photoUrls[photoView] && (
+              <View className="rounded-2xl overflow-hidden mb-4">
+                <HeatmapOverlay
+                  photoUri={photoUrls[photoView]!}
+                  overlays={row.overlays}
+                  which={photoView}
+                  mode={mode}
+                />
+              </View>
+            )}
+            
+            {!photoUrls[photoView] && (
+              <View className="bg-gray-50 p-8 rounded-2xl items-center mb-4">
+                <Text className="text-gray-500 text-center">
+                  {PHOTO_LABELS[photoView]} photo not available
+                </Text>
+              </View>
+            )}
             
             <HeatmapLegend mode={mode} />
           </View>
