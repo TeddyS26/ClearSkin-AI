@@ -109,6 +109,17 @@ export async function latestCompletedScan() {
   return data;
 }
 
+export async function getRecentCompletedScans(limit: number = 2) {
+  const { data, error } = await supabase
+    .from("scan_sessions")
+    .select("*")
+    .eq("status", "complete")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
 // Batch sign any storage paths via your edge function
 export async function signStoragePaths(paths: string[]) {
   if (!paths?.length) return {};

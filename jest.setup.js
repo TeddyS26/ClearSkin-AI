@@ -113,8 +113,10 @@ process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "test-key";
 
 // Clean up after each test to prevent async leaks
-afterEach(async () => {
-  // Wait for any pending promises to resolve
-  await new Promise(resolve => setImmediate(resolve));
+afterEach(() => {
+  // Clear all timers
+  jest.clearAllTimers();
+  // Clear all mocks
+  jest.clearAllMocks();
 });
 

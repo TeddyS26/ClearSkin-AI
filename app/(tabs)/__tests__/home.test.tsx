@@ -2,7 +2,7 @@ import React from "react";
 import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Home from "../home";
 import { useAuth } from "../../../src/ctx/AuthContext";
-import { latestCompletedScan } from "../../../src/lib/scan";
+import { getRecentCompletedScans } from "../../../src/lib/scan";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
@@ -12,6 +12,7 @@ jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
   TrendingUp: "TrendingUp",
+  TrendingDown: "TrendingDown",
   Droplet: "Droplet",
   Zap: "Zap",
   LogOut: "LogOut",
@@ -37,7 +38,7 @@ describe("Home", () => {
   });
 
   it("should render welcome message with user name", async () => {
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { getByText } = render(<Home />);
 
@@ -48,7 +49,7 @@ describe("Home", () => {
   });
 
   it("should show no scans message when no latest scan", async () => {
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { getAllByText } = render(<Home />);
 
@@ -65,7 +66,7 @@ describe("Home", () => {
       skin_score: 85,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -84,7 +85,7 @@ describe("Home", () => {
       skin_score: 85,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -94,7 +95,7 @@ describe("Home", () => {
   });
 
   it("should navigate to capture when scan button pressed", async () => {
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { getByText } = render(<Home />);
 
@@ -107,7 +108,7 @@ describe("Home", () => {
   });
 
   it("should render scan button when no scans", async () => {
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { getByText } = render(<Home />);
 
@@ -121,7 +122,7 @@ describe("Home", () => {
       user: {},
       signOut: mockSignOut,
     });
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { getByText } = render(<Home />);
 
@@ -139,7 +140,7 @@ describe("Home", () => {
       skin_type: "combination",
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -155,7 +156,7 @@ describe("Home", () => {
       skin_score: 85,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { toJSON } = render(<Home />);
 
@@ -171,7 +172,7 @@ describe("Home", () => {
       skin_score: 75,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -197,7 +198,7 @@ describe("Home", () => {
       oiliness_percent: 25,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -214,7 +215,7 @@ describe("Home", () => {
       oiliness_percent: 65,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -231,7 +232,7 @@ describe("Home", () => {
       oiliness_percent: 75,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { getByText } = render(<Home />);
 
@@ -241,7 +242,7 @@ describe("Home", () => {
   });
 
   it("should set up real-time subscription on mount", async () => {
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     render(<Home />);
 
@@ -251,7 +252,7 @@ describe("Home", () => {
   });
 
   it("should clean up subscription on unmount", async () => {
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { unmount } = render(<Home />);
 
@@ -271,12 +272,12 @@ describe("Home", () => {
       skin_score: 85,
     };
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
     const { UNSAFE_getByType } = render(<Home />);
 
     await waitFor(() => {
-      expect(latestCompletedScan).toHaveBeenCalled();
+      expect(getRecentCompletedScans).toHaveBeenCalled();
     });
 
     // Find ScrollView and trigger refresh
@@ -288,13 +289,13 @@ describe("Home", () => {
     await refreshControl.props.onRefresh();
 
     await waitFor(() => {
-      expect(latestCompletedScan).toHaveBeenCalledTimes(2);
+      expect(getRecentCompletedScans).toHaveBeenCalledTimes(2);
     });
   });
 
   it("should handle fetchData error gracefully", async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation();
-    (latestCompletedScan as jest.Mock).mockRejectedValue(new Error("Network error"));
+    (getRecentCompletedScans as jest.Mock).mockRejectedValue(new Error("Network error"));
 
     const { getByText } = render(<Home />);
 
@@ -310,12 +311,12 @@ describe("Home", () => {
       user: null,
       signOut: mockSignOut,
     });
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     render(<Home />);
 
     await waitFor(() => {
-      expect(latestCompletedScan).toHaveBeenCalled();
+      expect(getRecentCompletedScans).toHaveBeenCalled();
     });
 
     // Channel should not be created without a user
@@ -327,12 +328,12 @@ describe("Home", () => {
       user: null,
       signOut: mockSignOut,
     });
-    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
 
     const { rerender } = render(<Home />);
 
     await waitFor(() => {
-      expect(latestCompletedScan).toHaveBeenCalled();
+      expect(getRecentCompletedScans).toHaveBeenCalled();
     });
 
     // Channel should not be created without a user
@@ -348,6 +349,135 @@ describe("Home", () => {
 
     await waitFor(() => {
       expect(supabase.channel).toHaveBeenCalled();
+    });
+  });
+
+  it("should show multiple days ago correctly", async () => {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const mockScan = {
+      id: "scan-1",
+      created_at: threeDaysAgo.toISOString(),
+      skin_score: 85,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText(/3 days ago/)).toBeTruthy();
+    });
+  });
+
+  it("should display score improvement with previous scan", async () => {
+    const latestScan = {
+      id: "scan-2",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+    };
+    const previousScan = {
+      id: "scan-1",
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      skin_score: 80,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([latestScan, previousScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText(/\+5 from last scan/)).toBeTruthy();
+    });
+  });
+
+  it("should display score decline with previous scan", async () => {
+    const latestScan = {
+      id: "scan-2",
+      created_at: new Date().toISOString(),
+      skin_score: 75,
+    };
+    const previousScan = {
+      id: "scan-1",
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      skin_score: 80,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([latestScan, previousScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText(/-5 from last scan/)).toBeTruthy();
+    });
+  });
+
+  it("should display pore health as Excellent", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      pore_health: 85,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Excellent")).toBeTruthy();
+    });
+  });
+
+  it("should display pore health as Good", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      pore_health: 65,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Good")).toBeTruthy();
+    });
+  });
+
+  it("should display pore health as Fair", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      pore_health: 45,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Fair")).toBeTruthy();
+    });
+  });
+
+  it("should display pore health as Needs attention", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      pore_health: 35,
+    };
+
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Needs attention")).toBeTruthy();
     });
   });
 
