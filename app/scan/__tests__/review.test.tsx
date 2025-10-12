@@ -77,10 +77,37 @@ describe("Review", () => {
     expect(tree).toBeTruthy();
   });
 
+  it("should open modal when image is tapped", () => {
+    const { getByTestId, getByText, queryByText } = render(<Review />);
+    
+    // Modal should not be visible initially
+    expect(queryByText("Close")).toBeNull();
+    
+    // Tap on front image
+    fireEvent.press(getByTestId("image-front"));
+    
+    // Modal should now be visible
+    expect(getByText("Close")).toBeTruthy();
+    expect(getByText("Tap outside image to close")).toBeTruthy();
+  });
+
+  it("should close modal when Close button is pressed", () => {
+    const { getByTestId, getByText, queryByText } = render(<Review />);
+    
+    // Open modal
+    fireEvent.press(getByTestId("image-front"));
+    expect(getByText("Close")).toBeTruthy();
+    
+    // Close modal
+    fireEvent.press(getByText("Close"));
+    
+    // Modal should be closed
+    expect(queryByText("Close")).toBeNull();
+  });
+
   it("should match snapshot", () => {
     const { toJSON } = render(<Review />);
     
     expect(toJSON()).toMatchSnapshot();
   });
 });
-
