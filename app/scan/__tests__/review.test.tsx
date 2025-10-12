@@ -8,7 +8,6 @@ jest.mock("lucide-react-native", () => ({
   CheckCircle: "CheckCircle",
   RotateCcw: "RotateCcw",
   Sparkles: "Sparkles",
-  ArrowLeft: "ArrowLeft",
 }));
 
 describe("Review", () => {
@@ -69,15 +68,6 @@ describe("Review", () => {
     fireEvent.press(getByText("Retake Photos"));
     
     expect(mockRouter.back).toHaveBeenCalled();
-  });
-
-  it("should navigate back to capture when back button pressed", () => {
-    const { getAllByText } = render(<Review />);
-    
-    const backButton = getAllByText("Back")[0];
-    fireEvent.press(backButton);
-    
-    expect(mockRouter.push).toHaveBeenCalledWith("/scan/capture");
   });
 
   it("should display images with correct URIs", () => {

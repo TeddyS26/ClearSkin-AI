@@ -25,49 +25,6 @@ exports[`Review should match snapshot 1`] = `
         className="px-6 pt-6"
       >
         <View
-          accessibilityState={
-            {
-              "busy": undefined,
-              "checked": undefined,
-              "disabled": undefined,
-              "expanded": undefined,
-              "selected": undefined,
-            }
-          }
-          accessibilityValue={
-            {
-              "max": undefined,
-              "min": undefined,
-              "now": undefined,
-              "text": undefined,
-            }
-          }
-          accessible={true}
-          className="flex-row items-center mb-4 active:opacity-60"
-          collapsable={false}
-          focusable={true}
-          onBlur={[Function]}
-          onClick={[Function]}
-          onFocus={[Function]}
-          onResponderGrant={[Function]}
-          onResponderMove={[Function]}
-          onResponderRelease={[Function]}
-          onResponderTerminate={[Function]}
-          onResponderTerminationRequest={[Function]}
-          onStartShouldSetResponder={[Function]}
-        >
-          <ArrowLeft
-            color="#10B981"
-            size={24}
-            strokeWidth={2.5}
-          />
-          <Text
-            className="text-emerald-600 font-semibold text-base ml-1"
-          >
-            Back
-          </Text>
-        </View>
-        <View
           className="mb-6"
         >
           <Text
