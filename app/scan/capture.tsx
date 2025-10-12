@@ -3,7 +3,7 @@ import { View, Text, Pressable, Image, Alert, ScrollView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera, CheckCircle, Circle } from "lucide-react-native";
+import { Camera, CheckCircle, Circle, ArrowLeft } from "lucide-react-native";
 
 export default function Capture() {
   const [front, setFront] = useState<string|undefined>();
@@ -24,6 +24,16 @@ export default function Capture() {
     <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
       <View className="px-6 pt-6">
+        {/* Back Button */}
+        <Pressable
+          onPress={() => router.push("/(tabs)/home")}
+          className="flex-row items-center mb-4 active:opacity-60"
+          android_ripple={{ color: "#10B98120" }}
+        >
+          <ArrowLeft size={24} color="#10B981" strokeWidth={2.5} />
+          <Text className="text-emerald-600 font-semibold text-base ml-1">Back</Text>
+        </Pressable>
+
         <View className="mb-6">
           <Text className="text-2xl font-bold text-gray-900 mb-2">Capture Photos</Text>
           <Text className="text-base text-gray-600">Take three photos of your face from different angles</Text>

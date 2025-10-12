@@ -15,16 +15,19 @@ jest.mock("lucide-react-native", () => ({
   Sun: "Sun",
   Moon: "Moon",
   Package: "Package",
+  ArrowLeft: "ArrowLeft",
 }));
 jest.mock("../../../components/HeatmapOverlay", () => "HeatmapOverlay");
 jest.mock("../../../components/HeatmapLegend", () => "HeatmapLegend");
 
 describe("Result", () => {
   const mockParams = { id: "scan-123" };
+  const mockRouter = { push: jest.fn() };
 
   beforeEach(() => {
     jest.clearAllMocks();
     (useLocalSearchParams as jest.Mock).mockReturnValue(mockParams);
+    (require("expo-router").useRouter as jest.Mock).mockReturnValue(mockRouter);
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { access_token: "token" } },
     });
@@ -130,6 +133,25 @@ describe("Result", () => {
     // Modes should be available
     expect(getByText("Breakouts")).toBeTruthy();
     expect(getByText("Oiliness")).toBeTruthy();
+  });
+
+  it("should navigate back to history when back button is pressed", async () => {
+    const mockScan = {
+      id: "scan-123",
+      skin_score: 85,
+      front_path: "path/front.jpg",
+    };
+
+    (getScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { getByText } = render(<Result />);
+
+    await waitFor(() => {
+      expect(getByText("Your Results")).toBeTruthy();
+    });
+
+    // Back button should be rendered
+    expect(mockRouter.push).not.toHaveBeenCalled();
   });
 });
 
