@@ -3,9 +3,12 @@ import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import History from "../history";
 import { listScans, signStoragePaths, fmtDate } from "../../../src/lib/scan";
 import { useRouter } from "expo-router";
+import { supabase } from "../../../src/lib/supabase";
+import { useAuth } from "../../../src/ctx/AuthContext";
 
 jest.mock("../../../src/lib/scan");
 jest.mock("expo-router");
+jest.mock("../../../src/ctx/AuthContext");
 jest.mock("lucide-react-native", () => ({
   Calendar: "Calendar",
   TrendingUp: "TrendingUp",
@@ -17,6 +20,9 @@ describe("History", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
+    (useAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-123", email: "test@example.com" },
+    });
   });
 
   it("should show loading indicator initially", () => {
@@ -197,6 +203,32 @@ describe("History", () => {
     await waitFor(() => {
       expect(getByText("pending")).toBeTruthy();
     });
+  });
+
+  it("should set up real-time subscription on mount", async () => {
+    (listScans as jest.Mock).mockResolvedValue([]);
+    (signStoragePaths as jest.Mock).mockResolvedValue({});
+
+    render(<History />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalledWith('history_scan_changes');
+    });
+  });
+
+  it("should clean up subscription on unmount", async () => {
+    (listScans as jest.Mock).mockResolvedValue([]);
+    (signStoragePaths as jest.Mock).mockResolvedValue({});
+
+    const { unmount } = render(<History />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalled();
+    });
+
+    unmount();
+
+    expect(supabase.removeChannel).toHaveBeenCalled();
   });
 });
 

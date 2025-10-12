@@ -1,25 +1,69 @@
-import { useEffect, useState } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Text, ScrollView, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { latestCompletedScan } from "../../src/lib/scan";
+import { supabase } from "../../src/lib/supabase";
+import { useAuth } from "../../src/ctx/AuthContext";
 import { Sun, Moon, CheckCircle2, Sparkles } from "lucide-react-native";
 
 export default function Routine() {
   const [row, setRow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
+
+  const fetchData = useCallback(async () => {
+    try {
+      const r = await latestCompletedScan();
+      setRow(r);
+    } catch (error) {
+      console.error("Error fetching latest scan:", error);
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        const r = await latestCompletedScan();
-        setRow(r);
+        await fetchData();
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [fetchData]);
+
+  // Set up real-time subscription for automatic updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('routine_scan_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scan_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // When a scan is inserted or updated, refresh the data
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, [fetchData]);
 
   if (loading) {
     return (
@@ -52,7 +96,13 @@ export default function Routine() {
 
   return (
     <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView 
+        className="flex-1" 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
+        }
+      >
       <View className="px-6 pt-6">
         <Text className="text-2xl font-bold text-gray-900 mb-1">Your Routine</Text>
         <Text className="text-sm text-gray-600 mb-6">Personalized skincare recommendations</Text>

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { useEffect, useState, useCallback } from "react";
+import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native";
 import { Link, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
 import { Camera, TrendingUp, Droplet, Zap } from "lucide-react-native";
 import { latestCompletedScan } from "../../src/lib/scan";
+import { supabase } from "../../src/lib/supabase";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -59,17 +60,58 @@ export default function Home() {
   const userName = user?.email?.split('@')[0] || 'there';
   const [latestScan, setLatestScan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const scan = await latestCompletedScan();
+      setLatestScan(scan);
+    } catch (error) {
+      console.error("Error fetching latest scan:", error);
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        const scan = await latestCompletedScan();
-        setLatestScan(scan);
+        await fetchData();
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [fetchData]);
+
+  // Set up real-time subscription for automatic updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('scan_sessions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scan_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // When a scan is inserted or updated, refresh the data
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchData]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  }, [fetchData]);
 
   // Calculate days ago
   const getDaysAgo = () => {
@@ -108,7 +150,13 @@ export default function Home() {
   
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView 
+        className="flex-1" 
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
+        }
+      >
         <View className="px-5 pt-6">
           {/* Header */}
           <View className="mb-6">

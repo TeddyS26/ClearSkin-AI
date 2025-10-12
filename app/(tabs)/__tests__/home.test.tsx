@@ -4,6 +4,7 @@ import Home from "../home";
 import { useAuth } from "../../../src/ctx/AuthContext";
 import { latestCompletedScan } from "../../../src/lib/scan";
 import { useRouter } from "expo-router";
+import { supabase } from "../../../src/lib/supabase";
 
 jest.mock("../../../src/ctx/AuthContext");
 jest.mock("../../../src/lib/scan");
@@ -30,7 +31,7 @@ describe("Home", () => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useAuth as jest.Mock).mockReturnValue({
-      user: { email: "test@example.com" },
+      user: { id: "user-123", email: "test@example.com" },
       signOut: mockSignOut,
     });
   });
@@ -122,11 +123,11 @@ describe("Home", () => {
     });
     (latestCompletedScan as jest.Mock).mockResolvedValue(null);
 
-    const { getByText, toJSON } = render(<Home />);
+    const { getByText } = render(<Home />);
 
     await waitFor(() => {
-      const tree = JSON.stringify(toJSON());
-      expect(tree).toContain("There");
+      expect(getByText(/Hello/)).toBeTruthy();
+      expect(getByText(/There/)).toBeTruthy();
     });
   });
 
@@ -236,6 +237,117 @@ describe("Home", () => {
 
     await waitFor(() => {
       expect(getByText("Very High")).toBeTruthy();
+    });
+  });
+
+  it("should set up real-time subscription on mount", async () => {
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalledWith('scan_sessions_changes');
+    });
+  });
+
+  it("should clean up subscription on unmount", async () => {
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+
+    const { unmount } = render(<Home />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalled();
+    });
+
+    unmount();
+
+    expect(supabase.removeChannel).toHaveBeenCalled();
+  });
+
+  it("should handle pull-to-refresh", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { UNSAFE_getByType } = render(<Home />);
+
+    await waitFor(() => {
+      expect(latestCompletedScan).toHaveBeenCalled();
+    });
+
+    // Find ScrollView and trigger refresh
+    const ScrollView = require("react-native").ScrollView;
+    const scrollView = UNSAFE_getByType(ScrollView);
+    const refreshControl = scrollView.props.refreshControl;
+
+    // Simulate pull-to-refresh
+    await refreshControl.props.onRefresh();
+
+    await waitFor(() => {
+      expect(latestCompletedScan).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("should handle fetchData error gracefully", async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    (latestCompletedScan as jest.Mock).mockRejectedValue(new Error("Network error"));
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith("Error fetching latest scan:", expect.any(Error));
+    });
+
+    consoleError.mockRestore();
+  });
+
+  it("should not set up subscription when user is null", async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: null,
+      signOut: mockSignOut,
+    });
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(latestCompletedScan).toHaveBeenCalled();
+    });
+
+    // Channel should not be created without a user
+    expect(supabase.channel).not.toHaveBeenCalled();
+  });
+
+  it("should not set up subscription when user is null and then set it up when user appears", async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: null,
+      signOut: mockSignOut,
+    });
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+
+    const { rerender } = render(<Home />);
+
+    await waitFor(() => {
+      expect(latestCompletedScan).toHaveBeenCalled();
+    });
+
+    // Channel should not be created without a user
+    expect(supabase.channel).not.toHaveBeenCalled();
+
+    // Now provide a user
+    (useAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-123", email: "test@example.com" },
+      signOut: mockSignOut,
+    });
+
+    rerender(<Home />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalled();
     });
   });
 

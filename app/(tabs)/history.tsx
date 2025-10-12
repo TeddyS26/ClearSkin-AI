@@ -3,6 +3,8 @@ import { View, Text, FlatList, Image, Pressable, ActivityIndicator, RefreshContr
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { listScans, signStoragePaths, fmtDate } from "../../src/lib/scan";
+import { supabase } from "../../src/lib/supabase";
+import { useAuth } from "../../src/ctx/AuthContext";
 import { Calendar, TrendingUp } from "lucide-react-native";
 
 type Row = any;
@@ -14,6 +16,7 @@ export default function History() {
   const [refreshing, setRefreshing] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
   const router = useRouter();
+  const { user } = useAuth();
 
   const fetchPage = useCallback(async (next?: boolean) => {
     const data = await listScans({ limit: 20, cursor: next ? cursor : undefined });
@@ -34,6 +37,32 @@ export default function History() {
       try { await fetchPage(false); } finally { setLoading(false); }
     })();
   }, []);
+
+  // Set up real-time subscription for automatic updates
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('history_scan_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scan_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // When a scan is inserted or updated, refresh the data
+          fetchPage(false).catch(() => {});
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, fetchPage]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

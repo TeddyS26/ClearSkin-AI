@@ -3,9 +3,12 @@ import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Latest from "../latest";
 import { latestCompletedScan, signStoragePaths } from "../../../src/lib/scan";
 import { useRouter } from "expo-router";
+import { supabase } from "../../../src/lib/supabase";
+import { useAuth } from "../../../src/ctx/AuthContext";
 
 jest.mock("../../../src/lib/scan");
 jest.mock("expo-router");
+jest.mock("../../../src/ctx/AuthContext");
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
   TrendingUp: "TrendingUp",
@@ -21,6 +24,9 @@ describe("Latest", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
+    (useAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-123", email: "test@example.com" },
+    });
   });
 
   it("should show loading indicator initially", () => {
@@ -165,6 +171,87 @@ describe("Latest", () => {
 
     await waitFor(() => {
       expect(getByText("Latest Result")).toBeTruthy();
+    });
+  });
+
+  it("should set up real-time subscription on mount", async () => {
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+
+    render(<Latest />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalledWith('latest_scan_changes');
+    });
+  });
+
+  it("should clean up subscription on unmount", async () => {
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
+
+    const { unmount } = render(<Latest />);
+
+    await waitFor(() => {
+      expect(supabase.channel).toHaveBeenCalled();
+    });
+
+    unmount();
+
+    expect(supabase.removeChannel).toHaveBeenCalled();
+  });
+
+  it("should handle pull-to-refresh", async () => {
+    const mockScan = {
+      id: "scan-1",
+      skin_score: 85,
+      front_path: "path/front.jpg",
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+    (signStoragePaths as jest.Mock).mockResolvedValue({});
+
+    const { UNSAFE_getByType } = render(<Latest />);
+
+    await waitFor(() => {
+      expect(latestCompletedScan).toHaveBeenCalled();
+    });
+
+    // Find ScrollView and trigger refresh
+    const ScrollView = require("react-native").ScrollView;
+    const scrollView = UNSAFE_getByType(ScrollView);
+    const refreshControl = scrollView.props.refreshControl;
+
+    // Simulate pull-to-refresh
+    await refreshControl.props.onRefresh();
+
+    await waitFor(() => {
+      expect(latestCompletedScan).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("should handle fetchData error gracefully", async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    (latestCompletedScan as jest.Mock).mockRejectedValue(new Error("Network error"));
+
+    render(<Latest />);
+
+    await waitFor(() => {
+      expect(consoleError).toHaveBeenCalledWith("Error fetching latest scan:", expect.any(Error));
+    });
+
+    consoleError.mockRestore();
+  });
+
+  it("should set frontUrl to null when no front_path", async () => {
+    const mockScan = {
+      id: "scan-1",
+      skin_score: 85,
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { getByText } = render(<Latest />);
+
+    await waitFor(() => {
+      expect(getByText("85/100")).toBeTruthy();
     });
   });
 });
