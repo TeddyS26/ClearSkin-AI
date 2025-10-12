@@ -135,6 +135,7 @@ export default function Capture() {
             <Pressable
               onPress={capturePhoto}
               style={{ opacity: 1 }}
+              testID="capture-button"
             >
               <View style={{ 
                 width: 80, 
@@ -159,6 +160,7 @@ export default function Capture() {
             <Pressable
               onPress={() => setCaptureMode(null)}
               style={{ marginTop: 20 }}
+              testID="cancel-camera-button"
             >
               <Text className="text-white text-base font-medium">Cancel</Text>
             </Pressable>
@@ -211,6 +213,7 @@ export default function Capture() {
           className="mb-4" 
           onPress={() => take("front")}
           android_ripple={{ color: "#10B98120" }}
+          testID="front-photo-button"
         >
           <View className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
             {front ? (
@@ -232,6 +235,7 @@ export default function Capture() {
           className="mb-4" 
           onPress={() => take("left")}
           android_ripple={{ color: "#10B98120" }}
+          testID="left-photo-button"
         >
           <View className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
             {left ? (
@@ -253,6 +257,7 @@ export default function Capture() {
           className="mb-6" 
           onPress={() => take("right")}
           android_ripple={{ color: "#10B98120" }}
+          testID="right-photo-button"
         >
           <View className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100">
             {right ? (
@@ -275,6 +280,7 @@ export default function Capture() {
           onPress={() => router.push({ pathname: "/scan/review", params: { front, left, right } })} 
           className={`py-5 rounded-2xl items-center shadow-sm ${ready ? "bg-emerald-500 active:opacity-90" : "bg-gray-300"}`}
           android_ripple={ready ? { color: "#059669" } : undefined}
+          testID="continue-button"
         >
           <Text className={`text-lg font-bold ${ready ? "text-white" : "text-gray-500"}`}>
             Continue to Review

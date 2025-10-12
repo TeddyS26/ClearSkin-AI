@@ -155,5 +155,48 @@ describe("History", () => {
       expect(getByText("Skin analysis")).toBeTruthy();
     });
   });
+
+  it("should handle missing signed URL", async () => {
+    const mockScans = [
+      {
+        id: "scan-1",
+        created_at: "2025-01-01",
+        status: "complete",
+        skin_score: 90,
+        front_path: "path/missing.jpg",
+      },
+    ];
+
+    (listScans as jest.Mock).mockResolvedValue(mockScans);
+    (signStoragePaths as jest.Mock).mockResolvedValue({});
+    (fmtDate as jest.Mock).mockReturnValue("Jan 1, 2025");
+
+    const { getByText } = render(<History />);
+
+    await waitFor(() => {
+      expect(getByText("90/100")).toBeTruthy();
+    });
+  });
+
+  it("should display pending status", async () => {
+    const mockScans = [
+      {
+        id: "scan-1",
+        created_at: "2025-01-01",
+        status: "pending",
+        front_path: "path/front.jpg",
+      },
+    ];
+
+    (listScans as jest.Mock).mockResolvedValue(mockScans);
+    (signStoragePaths as jest.Mock).mockResolvedValue({});
+    (fmtDate as jest.Mock).mockReturnValue("Jan 1, 2025");
+
+    const { getByText } = render(<History />);
+
+    await waitFor(() => {
+      expect(getByText("pending")).toBeTruthy();
+    });
+  });
 });
 

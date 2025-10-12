@@ -162,5 +162,82 @@ describe("Home", () => {
       expect(toJSON()).toBeTruthy();
     });
   });
+
+  it("should navigate to latest scan when card pressed", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 75,
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("75")).toBeTruthy();
+    });
+
+    // Press the latest scan card
+    const scoreText = getByText("75");
+    const card = scoreText.parent?.parent?.parent?.parent;
+    if (card) {
+      fireEvent.press(card);
+    }
+
+    expect(mockRouter.push).toHaveBeenCalledWith("/(tabs)/latest");
+  });
+
+  it("should display oiliness status low", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      oiliness_percent: 25,
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Low")).toBeTruthy();
+    });
+  });
+
+  it("should display oiliness status high", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      oiliness_percent: 65,
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("High")).toBeTruthy();
+    });
+  });
+
+  it("should display oiliness status very high", async () => {
+    const mockScan = {
+      id: "scan-1",
+      created_at: new Date().toISOString(),
+      skin_score: 85,
+      oiliness_percent: 75,
+    };
+
+    (latestCompletedScan as jest.Mock).mockResolvedValue(mockScan);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Very High")).toBeTruthy();
+    });
+  });
+
 });
 
