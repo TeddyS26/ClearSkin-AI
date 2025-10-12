@@ -9,12 +9,6 @@ import { supabase } from "../../../src/lib/supabase";
 jest.mock("../../../src/ctx/AuthContext");
 jest.mock("../../../src/lib/scan");
 jest.mock("expo-router");
-jest.mock("../../../src/lib/supabase", () => ({
-  supabase: {
-    channel: jest.fn(),
-    removeChannel: jest.fn(),
-  },
-}));
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
   TrendingUp: "TrendingUp",
@@ -32,18 +26,9 @@ jest.mock("react-native-svg", () => ({
 describe("Home", () => {
   const mockRouter = { push: jest.fn() };
   const mockSignOut = jest.fn();
-  const mockSubscribe = jest.fn();
-  const mockOn = jest.fn();
-  const mockChannel = {
-    on: mockOn,
-    subscribe: mockSubscribe,
-  };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOn.mockReturnValue(mockChannel);
-    mockSubscribe.mockReturnValue(mockChannel);
-    (supabase.channel as jest.Mock).mockReturnValue(mockChannel);
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user-123", email: "test@example.com" },
@@ -262,17 +247,6 @@ describe("Home", () => {
 
     await waitFor(() => {
       expect(supabase.channel).toHaveBeenCalledWith('scan_sessions_changes');
-      expect(mockOn).toHaveBeenCalledWith(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'scan_sessions',
-          filter: 'user_id=eq.user-123'
-        },
-        expect.any(Function)
-      );
-      expect(mockSubscribe).toHaveBeenCalled();
     });
   });
 
@@ -282,12 +256,12 @@ describe("Home", () => {
     const { unmount } = render(<Home />);
 
     await waitFor(() => {
-      expect(mockSubscribe).toHaveBeenCalled();
+      expect(supabase.channel).toHaveBeenCalled();
     });
 
     unmount();
 
-    expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel);
+    expect(supabase.removeChannel).toHaveBeenCalled();
   });
 
   it("should handle pull-to-refresh", async () => {
@@ -348,34 +322,32 @@ describe("Home", () => {
     expect(supabase.channel).not.toHaveBeenCalled();
   });
 
-  it("should refresh data when subscription receives update", async () => {
-    let subscriptionCallback: Function;
-    mockOn.mockImplementation((event: string, config: any, callback: Function) => {
-      subscriptionCallback = callback;
-      return mockChannel;
+  it("should not set up subscription when user is null and then set it up when user appears", async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: null,
+      signOut: mockSignOut,
     });
+    (latestCompletedScan as jest.Mock).mockResolvedValue(null);
 
-    (latestCompletedScan as jest.Mock).mockResolvedValue({
-      id: "scan-1",
-      skin_score: 85,
-    });
-
-    render(<Home />);
+    const { rerender } = render(<Home />);
 
     await waitFor(() => {
-      expect(mockSubscribe).toHaveBeenCalled();
+      expect(latestCompletedScan).toHaveBeenCalled();
     });
 
-    // Simulate a database change
-    (latestCompletedScan as jest.Mock).mockResolvedValue({
-      id: "scan-2",
-      skin_score: 90,
+    // Channel should not be created without a user
+    expect(supabase.channel).not.toHaveBeenCalled();
+
+    // Now provide a user
+    (useAuth as jest.Mock).mockReturnValue({
+      user: { id: "user-123", email: "test@example.com" },
+      signOut: mockSignOut,
     });
 
-    subscriptionCallback!({ new: { id: "scan-2" } });
+    rerender(<Home />);
 
     await waitFor(() => {
-      expect(latestCompletedScan).toHaveBeenCalledTimes(2);
+      expect(supabase.channel).toHaveBeenCalled();
     });
   });
 

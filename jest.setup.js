@@ -40,7 +40,7 @@ jest.mock("expo-image-picker", () => ({
   },
 }));
 
-// Mock Supabase client
+// Mock Supabase client (can be overridden in individual test files)
 jest.mock("./src/lib/supabase", () => ({
   supabase: {
     auth: {
@@ -77,6 +77,11 @@ jest.mock("./src/lib/supabase", () => ({
         upload: jest.fn(),
       })),
     },
+    channel: jest.fn(() => ({
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn().mockReturnThis(),
+    })),
+    removeChannel: jest.fn(),
   },
 }));
 
@@ -90,14 +95,18 @@ global.console = {
   warn: jest.fn(),
 };
 
-// Mock Alert
-jest.mock("react-native", () => {
-  const RN = jest.requireActual("react-native");
-  RN.Alert.alert = jest.fn();
-  return RN;
-});
+// Mock Alert - must be done before any imports use it
+global.Alert = {
+  alert: jest.fn(),
+};
 
 // Setup process.env
 process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+
+// Clean up after each test to prevent async leaks
+afterEach(async () => {
+  // Wait for any pending promises to resolve
+  await new Promise(resolve => setImmediate(resolve));
+});
 

@@ -55,7 +55,7 @@ describe("Loading", () => {
       status: "complete",
     });
 
-    const { getByText } = render(<Loading />);
+    const { getByText, unmount } = render(<Loading />);
 
     await waitFor(
       () => {
@@ -92,6 +92,17 @@ describe("Loading", () => {
       },
       { timeout: 3000 }
     );
+
+    // Wait for navigation to complete
+    await waitFor(
+      () => {
+        expect(mockRouter.replace).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
+
+    // Cleanup
+    unmount();
   });
 
   it("should navigate to result when analysis complete", async () => {

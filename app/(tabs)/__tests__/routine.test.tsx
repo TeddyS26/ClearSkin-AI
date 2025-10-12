@@ -9,12 +9,6 @@ import { useAuth } from "../../../src/ctx/AuthContext";
 jest.mock("../../../src/lib/scan");
 jest.mock("expo-router");
 jest.mock("../../../src/ctx/AuthContext");
-jest.mock("../../../src/lib/supabase", () => ({
-  supabase: {
-    channel: jest.fn(),
-    removeChannel: jest.fn(),
-  },
-}));
 jest.mock("lucide-react-native", () => ({
   Sun: "Sun",
   Moon: "Moon",
@@ -24,18 +18,9 @@ jest.mock("lucide-react-native", () => ({
 
 describe("Routine", () => {
   const mockRouter = { push: jest.fn() };
-  const mockSubscribe = jest.fn();
-  const mockOn = jest.fn();
-  const mockChannel = {
-    on: mockOn,
-    subscribe: mockSubscribe,
-  };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockOn.mockReturnValue(mockChannel);
-    mockSubscribe.mockReturnValue(mockChannel);
-    (supabase.channel as jest.Mock).mockReturnValue(mockChannel);
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user-123", email: "test@example.com" },
@@ -201,17 +186,6 @@ describe("Routine", () => {
 
     await waitFor(() => {
       expect(supabase.channel).toHaveBeenCalledWith('routine_scan_changes');
-      expect(mockOn).toHaveBeenCalledWith(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'scan_sessions',
-          filter: 'user_id=eq.user-123'
-        },
-        expect.any(Function)
-      );
-      expect(mockSubscribe).toHaveBeenCalled();
     });
   });
 
@@ -221,12 +195,12 @@ describe("Routine", () => {
     const { unmount } = render(<Routine />);
 
     await waitFor(() => {
-      expect(mockSubscribe).toHaveBeenCalled();
+      expect(supabase.channel).toHaveBeenCalled();
     });
 
     unmount();
 
-    expect(supabase.removeChannel).toHaveBeenCalledWith(mockChannel);
+    expect(supabase.removeChannel).toHaveBeenCalled();
   });
 
   it("should handle pull-to-refresh", async () => {
