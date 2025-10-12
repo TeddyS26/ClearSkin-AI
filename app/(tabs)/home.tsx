@@ -3,8 +3,8 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native"
 import { Link, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { Camera, TrendingUp, Droplet, Zap } from "lucide-react-native";
-import { latestCompletedScan } from "../../src/lib/scan";
+import { Camera, TrendingUp, TrendingDown, Droplet, Zap } from "lucide-react-native";
+import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
 import Svg, { Circle } from "react-native-svg";
 
@@ -59,13 +59,15 @@ export default function Home() {
   const router = useRouter();
   const userName = user?.email?.split('@')[0] || 'there';
   const [latestScan, setLatestScan] = useState<any>(null);
+  const [previousScan, setPreviousScan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const scan = await latestCompletedScan();
-      setLatestScan(scan);
+      const scans = await getRecentCompletedScans(2);
+      setLatestScan(scans[0] || null);
+      setPreviousScan(scans[1] || null);
     } catch (error) {
       console.error("Error fetching latest scan:", error);
     }
@@ -119,18 +121,23 @@ export default function Home() {
     const scanDate = new Date(latestScan.created_at);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - scanDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return "Today";
+    const hoursAgo = diffTime / (1000 * 60 * 60);
+    
+    // If less than 24 hours ago, show "Today"
+    if (hoursAgo < 24) return "Today";
+    
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     if (diffDays === 1) return "1 day ago";
     return `${diffDays} days ago`;
   };
 
   // Calculate improvement from previous scan
   const getImprovement = () => {
-    // This would ideally compare with previous scan
-    // For now, we'll use a placeholder
-    return latestScan?.skin_score ? 5 : 0;
+    if (!latestScan?.skin_score || !previousScan?.skin_score) return null;
+    return latestScan.skin_score - previousScan.skin_score;
   };
+
+  const improvementValue = getImprovement();
 
   // Get oiliness status text based on percentage
   const getOilinessStatus = (percent: number) => {
@@ -190,25 +197,39 @@ export default function Home() {
                 <View className="flex-row items-start mb-5">
                   {/* Circular Progress */}
                   <View style={{ marginRight: 20 }}>
-                    <CircularProgress value={latestScan.skin_score ?? 82} size={90} strokeWidth={8} />
+                    <CircularProgress value={latestScan.skin_score ?? 0} size={90} strokeWidth={8} />
                   </View>
 
                   {/* Score Info */}
                   <View className="flex-1 pt-2">
                     <View className="flex-row items-center mb-2">
                       <View style={{ marginRight: 6 }}>
-                        <TrendingUp size={20} color="#10B981" strokeWidth={2} />
+                        {improvementValue !== null && improvementValue > 0 ? (
+                          <TrendingUp size={20} color="#10B981" strokeWidth={2} />
+                        ) : improvementValue !== null && improvementValue < 0 ? (
+                          <TrendingDown size={20} color="#EF4444" strokeWidth={2} />
+                        ) : (
+                          <TrendingUp size={20} color="#6B7280" strokeWidth={2} />
+                        )}
                       </View>
                       <Text className="text-gray-900 text-lg font-semibold">
                         Skin Score
                       </Text>
                     </View>
                     <Text className="text-gray-700 text-sm mb-2">
-                      Your skin is showing improvement
+                      {improvementValue !== null && improvementValue > 0
+                        ? "Your skin is showing improvement"
+                        : improvementValue !== null && improvementValue < 0
+                        ? "Your score has decreased slightly"
+                        : improvementValue === 0
+                        ? "Your score remains stable"
+                        : "Track your progress with more scans"}
                     </Text>
-                    <Text className="text-emerald-500 text-sm font-medium">
-                      +{getImprovement()} from last scan
-                    </Text>
+                    {improvementValue !== null && improvementValue !== 0 && (
+                      <Text className={`text-sm font-medium ${improvementValue > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                        {improvementValue > 0 ? '+' : ''}{improvementValue} from last scan
+                      </Text>
+                    )}
                   </View>
                 </View>
 
@@ -219,7 +240,7 @@ export default function Home() {
                       Potential
                     </Text>
                     <Text className="text-gray-900 text-xl font-bold">
-                      {latestScan.skin_potential ?? 92}%
+                      {latestScan.skin_potential ?? "—"}%
                     </Text>
                   </View>
                   <View className="flex-1 bg-gray-50 rounded-2xl p-4">
