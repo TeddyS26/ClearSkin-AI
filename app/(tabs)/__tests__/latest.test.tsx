@@ -228,16 +228,14 @@ describe("Latest", () => {
   });
 
   it("should handle fetchData error gracefully", async () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation();
     (latestCompletedScan as jest.Mock).mockRejectedValue(new Error("Network error"));
 
-    render(<Latest />);
+    // Should not crash when fetchData encounters an error
+    const { getByText } = render(<Latest />);
 
     await waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith("Error fetching latest scan:", expect.any(Error));
+      expect(getByText("No scans yet")).toBeTruthy();
     });
-
-    consoleError.mockRestore();
   });
 
   it("should set frontUrl to null when no front_path", async () => {

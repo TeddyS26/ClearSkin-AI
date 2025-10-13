@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera, CheckCircle, Circle, ArrowLeft, Crown, Lock } from "lucide-react-native";
 import { authorizeScan } from "../../src/lib/scan";
+import * as ImageManipulator from 'expo-image-manipulator';
 
 type CaptureMode = "front" | "left" | "right" | null;
 
@@ -27,7 +28,6 @@ export default function Capture() {
         setIsAuthorized(result.allowed);
         setAuthInfo(result);
       } catch (e) {
-        console.error("Error checking scan authorization:", e);
         setIsAuthorized(false);
       }
     }
@@ -62,14 +62,22 @@ export default function Capture() {
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.9,
-        // Don't mirror the image for front camera
         skipProcessing: false,
       });
       
       if (photo?.uri) {
-        if (captureMode === "front") setFront(photo.uri);
-        else if (captureMode === "left") setLeft(photo.uri);
-        else if (captureMode === "right") setRight(photo.uri);
+        // Flip the image horizontally to correct the mirror effect from front camera
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [{ flip: ImageManipulator.FlipType.Horizontal }],
+          { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        
+        const correctedUri = manipulatedImage.uri;
+        
+        if (captureMode === "front") setFront(correctedUri);
+        else if (captureMode === "left") setLeft(correctedUri);
+        else if (captureMode === "right") setRight(correctedUri);
       }
       
       setCaptureMode(null);

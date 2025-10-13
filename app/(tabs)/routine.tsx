@@ -19,7 +19,7 @@ export default function Routine() {
       const r = await latestCompletedScan();
       setRow(r);
     } catch (error) {
-      console.error("Error fetching latest scan:", error);
+      // Error fetching latest scan
     }
   }, []);
 

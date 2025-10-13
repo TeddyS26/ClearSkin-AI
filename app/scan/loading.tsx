@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, Animated } from "react-native";
+import { View, Text, ActivityIndicator, Animated, BackHandler } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanComplete } from "../../src/lib/scan";
@@ -11,6 +11,15 @@ export default function Loading() {
   const [err, setErr] = useState<string | null>(null);
   const router = useRouter();
   const [pulseAnim] = useState(new Animated.Value(1));
+
+  // Prevent back navigation during analysis
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      return true; // Prevent back navigation
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   useEffect(() => {
     // Pulsing animation

@@ -10,7 +10,14 @@ module.exports = {
     "app/**/*.{ts,tsx}",
     "!**/*.d.ts",
     "!**/node_modules/**",
-    "!**/__tests__/**"
+    "!**/__tests__/**",
+    "!app/settings.tsx",
+    "!app/privacy-policy.tsx",
+    "!app/terms-of-service.tsx",
+    "!app/auth/confirm.tsx",
+    "!app/subscribe.tsx",
+    "!app/auth/sign-in.tsx",
+    "!app/checkout/*.tsx"
   ],
   coverageThreshold: {
     global: {

@@ -231,16 +231,14 @@ describe("Routine", () => {
   });
 
   it("should handle fetchData error gracefully", async () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation();
     (latestCompletedScan as jest.Mock).mockRejectedValue(new Error("Network error"));
 
-    render(<Routine />);
+    // Should not crash when fetchData encounters an error
+    const { getByText } = render(<Routine />);
 
     await waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith("Error fetching latest scan:", expect.any(Error));
+      expect(getByText("No routine yet")).toBeTruthy();
     });
-
-    consoleError.mockRestore();
   });
 });
 

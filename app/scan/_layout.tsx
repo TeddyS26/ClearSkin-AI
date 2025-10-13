@@ -5,9 +5,25 @@ export default function ScanLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        // Back gestures and hardware button are disabled globally in root layout
+        gestureEnabled: false, // Disable iOS swipe back gesture
+        animation: 'default',
       }}
-    />
+    >
+      <Stack.Screen 
+        name="review" 
+        options={{
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
+      <Stack.Screen 
+        name="loading" 
+        options={{
+          gestureEnabled: false,
+          fullScreenGestureEnabled: false,
+        }}
+      />
+    </Stack>
   );
 }
 
