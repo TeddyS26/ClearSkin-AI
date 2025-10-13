@@ -9,7 +9,11 @@ import { supabase } from "../../../src/lib/supabase";
 
 jest.mock("../../../src/ctx/AuthContext");
 jest.mock("../../../src/lib/scan");
-jest.mock("../../../src/lib/billing");
+jest.mock("../../../src/lib/billing", () => ({
+  hasActiveSubscription: jest.fn(),
+  getSubscriptionStatus: jest.fn(),
+  openBillingPortal: jest.fn(),
+}));
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
@@ -20,6 +24,7 @@ jest.mock("lucide-react-native", () => ({
   LogOut: "LogOut",
   Crown: "Crown",
   Lock: "Lock",
+  Settings: "Settings",
 }));
 jest.mock("react-native-svg", () => ({
   __esModule: true,

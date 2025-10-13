@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native"
 import { Link, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock } from "lucide-react-native";
+import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings } from "lucide-react-native";
 import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
 import { hasActiveSubscription } from "../../src/lib/billing";
@@ -202,17 +202,26 @@ export default function Home() {
           )}
 
           {/* Header */}
-          <View className="mb-6">
-            <Text className="text-gray-900 text-3xl font-bold mb-1">
-              Hello, {userName.charAt(0).toUpperCase() + userName.slice(1)}
-            </Text>
-            <Text className="text-gray-600 text-base">
-              {checkingSubscription 
-                ? "Welcome back" 
-                : hasSubscription 
-                ? "Your skin journey continues" 
-                : "Browse your skin history"}
-            </Text>
+          <View className="mb-6 flex-row items-start justify-between">
+            <View className="flex-1">
+              <Text className="text-gray-900 text-3xl font-bold mb-1">
+                Hello, {userName.charAt(0).toUpperCase() + userName.slice(1)}
+              </Text>
+              <Text className="text-gray-600 text-base">
+                {checkingSubscription 
+                  ? "Welcome back" 
+                  : hasSubscription 
+                  ? "Your skin journey continues" 
+                  : "Browse your skin history"}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => router.push("/settings")}
+              className="w-11 h-11 rounded-full bg-white items-center justify-center shadow-sm active:opacity-70"
+              android_ripple={{ color: "#F3F4F6" }}
+            >
+              <Settings size={22} color="#374151" strokeWidth={2} />
+            </Pressable>
           </View>
 
           {/* Latest Scan Card */}
