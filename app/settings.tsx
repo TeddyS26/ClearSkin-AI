@@ -168,6 +168,118 @@ export default function Settings() {
     );
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account, all your scan history, and all your data. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              "Are You Absolutely Sure?",
+              "This is your last chance. All your data will be permanently deleted and cannot be recovered.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete Everything",
+                  style: "destructive",
+                  onPress: performAccountDeletion,
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const performAccountDeletion = async () => {
+    try {
+      if (!user) throw new Error("No user found");
+
+      Alert.alert("Deleting Account", "Please wait while we delete all your data...");
+
+      // 1. Delete all images from storage
+      const { data: scanSessions } = await supabase
+        .from("scan_sessions")
+        .select("id")
+        .eq("user_id", user.id);
+
+      if (scanSessions && scanSessions.length > 0) {
+        // Delete each scan's images from storage
+        for (const scan of scanSessions) {
+          const folderPath = `user/${user.id}/${scan.id}`;
+          try {
+            // List all files in the scan folder
+            const { data: files } = await supabase.storage
+              .from("scan")
+              .list(folderPath);
+
+            if (files && files.length > 0) {
+              // Delete all files in the folder
+              const filePaths = files.map(file => `${folderPath}/${file.name}`);
+              await supabase.storage.from("scan").remove(filePaths);
+            }
+          } catch (storageError) {
+            // Continue even if storage deletion fails
+          }
+        }
+
+        // Try to delete the entire user folder
+        try {
+          const { data: userFiles } = await supabase.storage
+            .from("scan")
+            .list(`user/${user.id}`);
+          
+          if (userFiles && userFiles.length > 0) {
+            const userFilePaths = userFiles.map(file => `user/${user.id}/${file.name}`);
+            await supabase.storage.from("scan").remove(userFilePaths);
+          }
+        } catch (storageError) {
+          // Continue even if this fails
+        }
+      }
+
+      // 2. Delete all scan sessions
+      await supabase
+        .from("scan_sessions")
+        .delete()
+        .eq("user_id", user.id);
+
+      // 3. Delete all subscriptions
+      await supabase
+        .from("subscriptions")
+        .delete()
+        .eq("user_id", user.id);
+
+      // 4. Delete the auth user account (this will cascade to other related data)
+      const { error: deleteError } = await supabase.rpc("delete_user");
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      // 5. Sign out
+      await signOut();
+
+      Alert.alert(
+        "Account Deleted",
+        "Your account and all associated data have been permanently deleted.",
+        [{ text: "OK", onPress: () => router.replace("/") }]
+      );
+    } catch (error: any) {
+      Alert.alert(
+        "Deletion Failed",
+        error.message || "Failed to delete account. Please try again or contact support.",
+        [{ text: "OK" }]
+      );
+    }
+  };
+
   const openPrivacyPolicy = () => {
     router.push("/privacy-policy");
   };
@@ -369,6 +481,27 @@ export default function Settings() {
               subtitle="Sign out of your account"
               onPress={handleSignOut}
             />
+            <View className="h-3" />
+            <View className="bg-white rounded-2xl border border-red-200 overflow-hidden shadow-sm">
+              <Pressable
+                onPress={handleDeleteAccount}
+                className="flex-row items-center px-4 py-4 active:bg-red-50"
+                android_ripple={{ color: "#FEE2E2" }}
+              >
+                <View className="w-12 h-12 bg-red-100 rounded-xl items-center justify-center mr-4">
+                  <User size={24} color="#EF4444" strokeWidth={2} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-red-600 mb-0.5">
+                    Delete Account
+                  </Text>
+                  <Text className="text-sm text-red-500">
+                    Permanently delete your account and all data
+                  </Text>
+                </View>
+                <ChevronRight size={20} color="#EF4444" strokeWidth={2} />
+              </Pressable>
+            </View>
           </View>
 
           {/* App Version */}
