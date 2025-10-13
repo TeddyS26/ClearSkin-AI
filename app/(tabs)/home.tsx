@@ -64,6 +64,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
@@ -74,8 +75,10 @@ export default function Home() {
       // Check subscription status
       const subStatus = await hasActiveSubscription();
       setHasSubscription(subStatus);
+      setCheckingSubscription(false);
     } catch (error) {
       console.error("Error fetching latest scan:", error);
+      setCheckingSubscription(false);
     }
   }, []);
 
@@ -117,6 +120,7 @@ export default function Home() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setCheckingSubscription(true);
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
@@ -172,7 +176,7 @@ export default function Home() {
       >
         <View className="px-5 pt-6">
           {/* Subscription Status Banner */}
-          {!hasSubscription && (
+          {!checkingSubscription && !hasSubscription && (
             <Pressable
               onPress={() => router.push("/subscribe")}
               className="bg-gradient-to-r bg-emerald-500 rounded-2xl p-4 mb-6 shadow-sm active:opacity-90"
@@ -203,7 +207,11 @@ export default function Home() {
               Hello, {userName.charAt(0).toUpperCase() + userName.slice(1)}
             </Text>
             <Text className="text-gray-600 text-base">
-              {hasSubscription ? "Your skin journey continues" : "Browse your skin history"}
+              {checkingSubscription 
+                ? "Welcome back" 
+                : hasSubscription 
+                ? "Your skin journey continues" 
+                : "Browse your skin history"}
             </Text>
           </View>
 
@@ -298,28 +306,37 @@ export default function Home() {
           </Pressable>
 
           {/* Take a New Scan Button */}
-          <Pressable 
-            onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
-            className={`rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm ${
-              hasSubscription 
-                ? "bg-emerald-500 active:opacity-90" 
-                : "bg-gray-300 active:opacity-90"
-            }`}
-            android_ripple={{ color: hasSubscription ? "#059669" : "#D1D5DB" }}
-          >
-            <View style={{ marginRight: 10 }}>
-              {hasSubscription ? (
-                <Camera size={22} color="white" strokeWidth={2} />
-              ) : (
-                <Lock size={22} color="#9CA3AF" strokeWidth={2} />
-              )}
+          {checkingSubscription ? (
+            // Loading state - show neutral button while checking subscription
+            <View className="rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm bg-gray-200">
+              <Text className="text-base font-semibold text-gray-400">
+                Loading...
+              </Text>
             </View>
-            <Text className={`text-base font-semibold ${
-              hasSubscription ? "text-white" : "text-gray-500"
-            }`}>
-              {hasSubscription ? "Take a New Scan" : "Subscribe to Scan"}
-            </Text>
-          </Pressable>
+          ) : (
+            <Pressable 
+              onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
+              className={`rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm ${
+                hasSubscription 
+                  ? "bg-emerald-500 active:opacity-90" 
+                  : "bg-gray-300 active:opacity-90"
+              }`}
+              android_ripple={{ color: hasSubscription ? "#059669" : "#D1D5DB" }}
+            >
+              <View style={{ marginRight: 10 }}>
+                {hasSubscription ? (
+                  <Camera size={22} color="white" strokeWidth={2} />
+                ) : (
+                  <Lock size={22} color="#9CA3AF" strokeWidth={2} />
+                )}
+              </View>
+              <Text className={`text-base font-semibold ${
+                hasSubscription ? "text-white" : "text-gray-500"
+              }`}>
+                {hasSubscription ? "Take a New Scan" : "Subscribe to Scan"}
+              </Text>
+            </Pressable>
+          )}
 
           {/* Quick Insights */}
           {latestScan && (
