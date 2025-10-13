@@ -39,43 +39,6 @@ describe("RootLayout", () => {
     expect(toJSON()).toBeTruthy();
   });
 
-  it("should set up BackHandler on Android", () => {
-    const originalPlatform = Platform.OS;
-    Object.defineProperty(Platform, "OS", {
-      get: () => "android",
-    });
-
-    const addEventListenerSpy = jest.spyOn(BackHandler, "addEventListener");
-    
-    render(<RootLayout />);
-
-    expect(addEventListenerSpy).toHaveBeenCalledWith(
-      "hardwareBackPress",
-      expect.any(Function)
-    );
-
-    // Restore original platform
-    Object.defineProperty(Platform, "OS", {
-      get: () => originalPlatform,
-    });
-  });
-
-  it("should not set up BackHandler on iOS", () => {
-    const originalPlatform = Platform.OS;
-    Object.defineProperty(Platform, "OS", {
-      get: () => "ios",
-    });
-
-    const addEventListenerSpy = jest.spyOn(BackHandler, "addEventListener");
-    
-    render(<RootLayout />);
-
-    expect(addEventListenerSpy).not.toHaveBeenCalled();
-
-    // Restore original platform
-    Object.defineProperty(Platform, "OS", {
-      get: () => originalPlatform,
-    });
-  });
+  // Note: BackHandler is now handled per-screen (review, loading) rather than globally
 });
 

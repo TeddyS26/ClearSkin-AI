@@ -11,20 +11,8 @@ import { BackHandler, Platform } from "react-native";
 import { StripeProvider } from "@stripe/stripe-react-native";
 
 export default function RootLayout() {
-  // Disable Android hardware back button globally
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      const backHandler = BackHandler.addEventListener(
-        'hardwareBackPress',
-        () => {
-          // Return true to prevent default back behavior
-          return true;
-        }
-      );
-
-      return () => backHandler.remove();
-    }
-  }, []);
+  // Note: Back button prevention is now handled per-screen (e.g., review, loading)
+  // rather than globally, to allow natural navigation where appropriate
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

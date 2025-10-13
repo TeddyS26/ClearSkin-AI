@@ -1,14 +1,23 @@
-import { View, Text, Image, Pressable, ScrollView, Modal, Dimensions } from "react-native";
+import { View, Text, Image, Pressable, ScrollView, Modal, Dimensions, BackHandler } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CheckCircle, RotateCcw, Sparkles } from "lucide-react-native";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Review() {
   const { front, left, right } = useLocalSearchParams<{ front: string; left: string; right: string }>();
   const router = useRouter();
   const [expandedImage, setExpandedImage] = useState<{ uri: string; label: string } | null>(null);
   const screenHeight = Dimensions.get('window').height;
+
+  // Prevent back navigation
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      return true; // Prevent back navigation
+    });
+
+    return () => backHandler.remove();
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>

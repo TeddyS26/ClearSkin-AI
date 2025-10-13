@@ -318,16 +318,14 @@ describe("Home", () => {
   });
 
   it("should handle fetchData error gracefully", async () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation();
     (getRecentCompletedScans as jest.Mock).mockRejectedValue(new Error("Network error"));
 
+    // Should not crash when fetchData encounters an error
     const { getByText } = render(<Home />);
 
     await waitFor(() => {
-      expect(consoleError).toHaveBeenCalledWith("Error fetching latest scan:", expect.any(Error));
+      expect(getByText(/Hello/i)).toBeTruthy();
     });
-
-    consoleError.mockRestore();
   });
 
   it("should not set up subscription when user is null", async () => {

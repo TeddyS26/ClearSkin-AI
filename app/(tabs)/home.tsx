@@ -77,7 +77,6 @@ export default function Home() {
       setHasSubscription(subStatus);
       setCheckingSubscription(false);
     } catch (error) {
-      console.error("Error fetching latest scan:", error);
       setCheckingSubscription(false);
     }
   }, []);

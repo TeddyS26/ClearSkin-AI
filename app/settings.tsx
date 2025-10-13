@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, Linking, TextInput, Modal } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
 import { 
-  ChevronLeft, 
+  ArrowLeft, 
   CreditCard, 
   Lock, 
   LogOut, 
@@ -42,13 +42,9 @@ export default function Settings() {
     try {
       // Get current user
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      console.log("👤 Current User ID:", currentUser?.id);
       
       // Try to get subscription
       const sub = await getSubscriptionStatus();
-      console.log("📊 Subscription data:", JSON.stringify(sub, null, 2));
-      console.log("📊 Subscription status:", sub?.status);
-      console.log("📊 Is active?", sub?.status === "active");
       
       // If no subscription found, let's check the database directly
       if (!sub && currentUser) {
@@ -58,21 +54,14 @@ export default function Settings() {
           .eq("user_id", currentUser.id)
           .order("created_at", { ascending: false }); // Get newest first
         
-        console.log("🔍 Direct DB query - All subscriptions:", JSON.stringify(allSubs, null, 2));
-        console.log("🔍 Direct DB query - Error:", error);
-        
         // Check if there's ANY subscription
         if (allSubs && allSubs.length > 0) {
-          console.log("✅ Found subscription(s) in database:", allSubs.length);
-          
           // Prioritize active or trialing subscriptions
           const activeSub = allSubs.find(s => s.status === "active" || s.status === "trialing");
           
           if (activeSub) {
-            console.log("✅ Using ACTIVE subscription:", activeSub.id);
             setSubscription(activeSub);
           } else {
-            console.log("⚠️ No active subscription found, using most recent:", allSubs[0].status);
             setSubscription(allSubs[0]);
           }
           return;
@@ -81,7 +70,7 @@ export default function Settings() {
       
       setSubscription(sub);
     } catch (error) {
-      console.error("Error loading subscription:", error);
+      // Error loading subscription
     } finally {
       setLoading(false);
     }
@@ -169,7 +158,7 @@ export default function Settings() {
           onPress: async () => {
             try {
               await signOut();
-              router.replace("/auth/sign-in");
+              router.replace("/");
             } catch (error: any) {
               Alert.alert("Error", error.message || "Failed to sign out");
             }
@@ -180,11 +169,11 @@ export default function Settings() {
   };
 
   const openPrivacyPolicy = () => {
-    Linking.openURL("https://clearskinai.com/privacy");
+    router.push("/privacy-policy");
   };
 
   const openTermsOfService = () => {
-    Linking.openURL("https://clearskinai.com/terms");
+    router.push("/terms-of-service");
   };
 
   const SettingsButton = ({ 
@@ -249,10 +238,11 @@ export default function Settings() {
         <View className="px-5 pt-6 pb-4">
           <Pressable
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-full bg-white items-center justify-center shadow-sm active:opacity-70 mb-4"
-            android_ripple={{ color: "#F3F4F6" }}
+            className="flex-row items-center mb-4 active:opacity-60"
+            android_ripple={{ color: "#9CA3AF20" }}
           >
-            <ChevronLeft size={24} color="#374151" strokeWidth={2} />
+            <ArrowLeft size={24} color="#374151" strokeWidth={2.5} />
+            <Text className="text-gray-700 font-semibold text-base ml-1">Back</Text>
           </Pressable>
           <Text className="text-gray-900 text-3xl font-bold mb-1">Settings</Text>
           <Text className="text-gray-600 text-base">
@@ -274,23 +264,6 @@ export default function Settings() {
             <Text className="text-gray-900 text-lg font-bold mb-3">
               Subscription
             </Text>
-            
-            {/* Debug Info - Remove this after testing */}
-            {!loading && (
-              <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-3">
-                <Text className="text-yellow-800 text-xs font-bold mb-1">DEBUG INFO:</Text>
-                {subscription ? (
-                  <>
-                    <Text className="text-yellow-700 text-xs">Status: {subscription.status || 'null'}</Text>
-                    <Text className="text-yellow-700 text-xs">ID: {subscription.id || 'null'}</Text>
-                    <Text className="text-yellow-700 text-xs">Stripe Sub ID: {subscription.stripe_subscription_id || 'null'}</Text>
-                    <Text className="text-yellow-700 text-xs">Created: {subscription.created_at || 'null'}</Text>
-                  </>
-                ) : (
-                  <Text className="text-yellow-700 text-xs">No subscription record found in database</Text>
-                )}
-              </View>
-            )}
             
             {loading ? (
               <View className="bg-white rounded-2xl p-6 items-center shadow-sm">

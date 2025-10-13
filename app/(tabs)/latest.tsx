@@ -26,7 +26,7 @@ export default function Latest() {
         setFrontUrl(null);
       }
     } catch (error) {
-      console.error("Error fetching latest scan:", error);
+      // Error fetching latest scan
     }
   }, []);
 

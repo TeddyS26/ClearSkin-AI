@@ -29,7 +29,7 @@ export default function Subscribe() {
           router.replace("/(tabs)/home");
         }
       } catch (e) {
-        console.error("Error checking subscription:", e);
+        // Error checking subscription
       } finally {
         setCheckingSubscription(false);
       }
@@ -140,7 +140,6 @@ export default function Subscribe() {
         );
       }
     } catch (e: any) {
-      console.error("Subscription error:", e);
       Alert.alert("Subscription Error", e.message ?? String(e));
       setBusy(false);
       setCheckingSubscription(false);
