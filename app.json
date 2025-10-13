@@ -11,9 +11,12 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.clearskin.ai",
       "infoPlist": {
         "NSCameraUsageDescription": "We use the camera to capture your face photos for skin analysis."
-      }
+      },
+      "associatedDomains": ["applinks:clearskinai.com"],
+      "merchantId": "merchant.com.clearskin.ai"
     },
     "android": {
       "permissions": ["CAMERA"],

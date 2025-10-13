@@ -30,7 +30,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StripeProvider
-          publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""}
+          publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST || ""}
           merchantIdentifier="merchant.com.clearskin.ai" // For Apple Pay (optional)
         >
           <AuthProvider>

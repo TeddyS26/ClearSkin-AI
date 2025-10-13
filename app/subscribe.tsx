@@ -78,6 +78,13 @@ export default function Subscribe() {
           email: user?.email,
         },
         returnURL: 'clearskinai://checkout/success',
+        applePay: {
+          merchantCountryCode: 'US',
+        },
+        googlePay: {
+          merchantCountryCode: 'US',
+          testEnv: false, // Set to false in production
+        },
       });
 
       if (initError) {
