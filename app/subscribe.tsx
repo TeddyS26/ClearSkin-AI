@@ -78,12 +78,14 @@ export default function Subscribe() {
           email: user?.email,
         },
         returnURL: 'clearskinai://checkout/success',
+        // Enable Apple Pay
         applePay: {
           merchantCountryCode: 'US',
         },
+        // Enable Google Pay
         googlePay: {
           merchantCountryCode: 'US',
-          testEnv: false, // Set to false in production
+          testEnv: true, // Set to false for production
         },
       });
 
