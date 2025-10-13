@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Camera, CheckCircle, Circle, ArrowLeft, Crown, Lock } from "lucide-react-native";
 import { authorizeScan } from "../../src/lib/scan";
-import { startCheckout } from "../../src/lib/billing";
 
 type CaptureMode = "front" | "left" | "right" | null;
 
@@ -35,13 +34,8 @@ export default function Capture() {
     checkAuth();
   }, []);
 
-  const handleSubscribe = async () => {
-    try {
-      await startCheckout();
-      router.push("/(tabs)/home");
-    } catch (e: any) {
-      Alert.alert("Checkout Error", e.message ?? String(e));
-    }
+  const handleSubscribe = () => {
+    router.push("/subscribe");
   };
 
   const take = async (mode: CaptureMode) => {
