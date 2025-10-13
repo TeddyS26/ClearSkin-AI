@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "../src/ctx/AuthContext";
 import { useEffect } from "react";
 import { BackHandler, Platform } from "react-native";
+import { StripeProvider } from "@stripe/stripe-react-native";
 
 export default function RootLayout() {
   // Disable Android hardware back button globally
@@ -28,17 +29,22 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <StatusBar style="dark" />
-          <Stack 
-            screenOptions={{ 
-              headerShown: false,
-              gestureEnabled: false, // Disable iOS swipe back gesture globally
-              fullScreenGestureEnabled: false, // Disable full screen gesture on iOS
-              animation: 'default',
-            }} 
-          />
-        </AuthProvider>
+        <StripeProvider
+          publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST || ""}
+          merchantIdentifier="merchant.com.clearskin.ai" // For Apple Pay (optional)
+        >
+          <AuthProvider>
+            <StatusBar style="dark" />
+            <Stack 
+              screenOptions={{ 
+                headerShown: false,
+                gestureEnabled: false, // Disable iOS swipe back gesture globally
+                fullScreenGestureEnabled: false, // Disable full screen gesture on iOS
+                animation: 'default',
+              }} 
+            />
+          </AuthProvider>
+        </StripeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

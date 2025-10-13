@@ -104,9 +104,42 @@ describe("SignUp", () => {
     });
   });
 
-  it("should sign up successfully", async () => {
+  it("should sign up successfully with auto-login", async () => {
     (supabase.auth.signUp as jest.Mock).mockResolvedValue({
-      data: { user: { id: "user-123" } },
+      data: { 
+        user: { id: "user-123" },
+        session: { access_token: "token-123" }
+      },
+      error: null,
+    });
+
+    const { getByPlaceholderText, getAllByText } = render(<SignUp />);
+
+    const emailInput = getByPlaceholderText("your@email.com");
+    const passwordInput = getByPlaceholderText("At least 8 characters");
+    const confirmPasswordInput = getByPlaceholderText("Re-enter password");
+    const signUpButton = getAllByText("Create Account")[1];
+
+    fireEvent.changeText(emailInput, "test@example.com");
+    fireEvent.changeText(passwordInput, "password123");
+    fireEvent.changeText(confirmPasswordInput, "password123");
+    fireEvent.press(signUpButton);
+
+    await waitFor(() => {
+      expect(supabase.auth.signUp).toHaveBeenCalledWith({
+        email: "test@example.com",
+        password: "password123",
+      });
+      expect(mockReplace).toHaveBeenCalledWith("/subscribe");
+    });
+  });
+
+  it("should sign up successfully with email confirmation required", async () => {
+    (supabase.auth.signUp as jest.Mock).mockResolvedValue({
+      data: { 
+        user: { id: "user-123" },
+        session: null // No session = email confirmation required
+      },
       error: null,
     });
 
@@ -128,8 +161,8 @@ describe("SignUp", () => {
         password: "password123",
       });
       expect(Alert.alert).toHaveBeenCalledWith(
-        "Account created",
-        "Please sign in now."
+        "Check your email",
+        "Please confirm your email address to continue."
       );
       expect(mockReplace).toHaveBeenCalledWith("/auth/sign-in");
     });
@@ -266,7 +299,10 @@ describe("SignUp", () => {
 
   it("should accept exactly 8 character password", async () => {
     (supabase.auth.signUp as jest.Mock).mockResolvedValue({
-      data: { user: { id: "user-123" } },
+      data: { 
+        user: { id: "user-123" },
+        session: null // No session = email confirmation
+      },
       error: null,
     });
 
@@ -285,8 +321,8 @@ describe("SignUp", () => {
     await waitFor(() => {
       expect(supabase.auth.signUp).toHaveBeenCalled();
       expect(Alert.alert).toHaveBeenCalledWith(
-        "Account created",
-        "Please sign in now."
+        "Check your email",
+        "Please confirm your email address to continue."
       );
     });
   });

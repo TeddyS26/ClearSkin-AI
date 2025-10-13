@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
-import { Link, Redirect } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/ctx/AuthContext";
@@ -11,8 +11,14 @@ export default function SignIn() {
   const [email, setEmail] = useState(""); 
   const [pw, setPw] = useState(""); 
   const [busy, setBusy] = useState(false);
+  const router = useRouter();
 
-  if (!loading && user) return <Redirect href='/(tabs)/home' />;
+  useEffect(() => {
+    if (!loading && user) {
+      // @ts-ignore - route exists but not in generated types yet
+      router.replace("/subscribe");
+    }
+  }, [loading, user]);
 
   const onSubmit = async () => {
     try {

@@ -3,9 +3,10 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native"
 import { Link, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { Camera, TrendingUp, TrendingDown, Droplet, Zap } from "lucide-react-native";
+import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock } from "lucide-react-native";
 import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
+import { hasActiveSubscription } from "../../src/lib/billing";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -62,14 +63,22 @@ export default function Home() {
   const [previousScan, setPreviousScan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
       const scans = await getRecentCompletedScans(2);
       setLatestScan(scans[0] || null);
       setPreviousScan(scans[1] || null);
+      
+      // Check subscription status
+      const subStatus = await hasActiveSubscription();
+      setHasSubscription(subStatus);
+      setCheckingSubscription(false);
     } catch (error) {
       console.error("Error fetching latest scan:", error);
+      setCheckingSubscription(false);
     }
   }, []);
 
@@ -111,6 +120,7 @@ export default function Home() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setCheckingSubscription(true);
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
@@ -165,13 +175,43 @@ export default function Home() {
         }
       >
         <View className="px-5 pt-6">
+          {/* Subscription Status Banner */}
+          {!checkingSubscription && !hasSubscription && (
+            <Pressable
+              onPress={() => router.push("/subscribe")}
+              className="bg-gradient-to-r bg-emerald-500 rounded-2xl p-4 mb-6 shadow-sm active:opacity-90"
+              android_ripple={{ color: "#059669" }}
+            >
+              <View className="flex-row items-center">
+                <View className="w-10 h-10 bg-white/20 rounded-full items-center justify-center mr-3">
+                  <Crown size={20} color="#FFFFFF" strokeWidth={2.5} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white font-bold text-base mb-0.5">
+                    Unlock Premium Features
+                  </Text>
+                  <Text className="text-white/90 text-sm">
+                    Subscribe now for unlimited skin scans
+                  </Text>
+                </View>
+                <View className="w-8 h-8 bg-white/20 rounded-full items-center justify-center">
+                  <Text className="text-white font-bold text-lg">›</Text>
+                </View>
+              </View>
+            </Pressable>
+          )}
+
           {/* Header */}
           <View className="mb-6">
             <Text className="text-gray-900 text-3xl font-bold mb-1">
               Hello, {userName.charAt(0).toUpperCase() + userName.slice(1)}
             </Text>
             <Text className="text-gray-600 text-base">
-              Your skin journey continues
+              {checkingSubscription 
+                ? "Welcome back" 
+                : hasSubscription 
+                ? "Your skin journey continues" 
+                : "Browse your skin history"}
             </Text>
           </View>
 
@@ -266,18 +306,37 @@ export default function Home() {
           </Pressable>
 
           {/* Take a New Scan Button */}
-          <Pressable 
-            onPress={() => router.push("/scan/capture")}
-            className="bg-emerald-500 rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm active:opacity-90"
-            android_ripple={{ color: "#059669" }}
-          >
-            <View style={{ marginRight: 10 }}>
-              <Camera size={22} color="white" strokeWidth={2} />
+          {checkingSubscription ? (
+            // Loading state - show neutral button while checking subscription
+            <View className="rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm bg-gray-200">
+              <Text className="text-base font-semibold text-gray-400">
+                Loading...
+              </Text>
             </View>
-            <Text className="text-white text-base font-semibold">
-              Take a New Scan
-            </Text>
-          </Pressable>
+          ) : (
+            <Pressable 
+              onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
+              className={`rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm ${
+                hasSubscription 
+                  ? "bg-emerald-500 active:opacity-90" 
+                  : "bg-gray-300 active:opacity-90"
+              }`}
+              android_ripple={{ color: hasSubscription ? "#059669" : "#D1D5DB" }}
+            >
+              <View style={{ marginRight: 10 }}>
+                {hasSubscription ? (
+                  <Camera size={22} color="white" strokeWidth={2} />
+                ) : (
+                  <Lock size={22} color="#9CA3AF" strokeWidth={2} />
+                )}
+              </View>
+              <Text className={`text-base font-semibold ${
+                hasSubscription ? "text-white" : "text-gray-500"
+              }`}>
+                {hasSubscription ? "Take a New Scan" : "Subscribe to Scan"}
+              </Text>
+            </Pressable>
+          )}
 
           {/* Quick Insights */}
           {latestScan && (
