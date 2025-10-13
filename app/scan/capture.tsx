@@ -1,9 +1,11 @@
-import { useState, useRef } from "react";
-import { View, Text, Pressable, Image, Alert, ScrollView } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { View, Text, Pressable, Image, Alert, ScrollView, ActivityIndicator } from "react-native";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Camera, CheckCircle, Circle, ArrowLeft } from "lucide-react-native";
+import { Camera, CheckCircle, Circle, ArrowLeft, Crown, Lock } from "lucide-react-native";
+import { authorizeScan } from "../../src/lib/scan";
+import { startCheckout } from "../../src/lib/billing";
 
 type CaptureMode = "front" | "left" | "right" | null;
 
@@ -15,6 +17,32 @@ export default function Capture() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+  const [authInfo, setAuthInfo] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if user is authorized to scan
+    async function checkAuth() {
+      try {
+        const result = await authorizeScan();
+        setIsAuthorized(result.allowed);
+        setAuthInfo(result);
+      } catch (e) {
+        console.error("Error checking scan authorization:", e);
+        setIsAuthorized(false);
+      }
+    }
+    checkAuth();
+  }, []);
+
+  const handleSubscribe = async () => {
+    try {
+      await startCheckout();
+      router.push("/(tabs)/home");
+    } catch (e: any) {
+      Alert.alert("Checkout Error", e.message ?? String(e));
+    }
+  };
 
   const take = async (mode: CaptureMode) => {
     if (!permission) {
@@ -167,6 +195,109 @@ export default function Capture() {
           </View>
         </CameraView>
       </View>
+    );
+  }
+
+  // Loading state
+  if (isAuthorized === null) {
+    return (
+      <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#10B981" />
+          <Text className="text-gray-600 mt-4">Checking access...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Paywall screen - user not authorized
+  if (!isAuthorized) {
+    return (
+      <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
+        <ScrollView 
+          className="flex-1" 
+          contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 40 }}
+        >
+          <View className="flex-1">
+            {/* Back Button */}
+            <Pressable
+              onPress={() => router.push("/(tabs)/home")}
+              className="flex-row items-center mb-6 active:opacity-60"
+              android_ripple={{ color: "#10B98120" }}
+            >
+              <ArrowLeft size={24} color="#10B981" strokeWidth={2.5} />
+              <Text className="text-emerald-600 font-semibold text-base ml-1">Back</Text>
+            </Pressable>
+
+            {/* Icon and Title */}
+            <View className="items-center mb-8">
+              <View className="w-24 h-24 bg-amber-400 rounded-3xl items-center justify-center mb-4 shadow-lg">
+                <Lock size={48} color="#FFFFFF" strokeWidth={2.5} />
+              </View>
+              <Text className="text-3xl font-bold text-gray-900 mb-2 text-center">
+                Subscription Required
+              </Text>
+              <Text className="text-gray-600 text-base text-center px-4">
+                You need an active subscription or scan credits to perform skin analysis
+              </Text>
+            </View>
+
+            {/* Pricing Card */}
+            <View className="bg-white rounded-3xl p-8 shadow-lg mb-6">
+              <View className="items-center mb-6">
+                <Crown size={32} color="#F59E0B" strokeWidth={2} />
+                <Text className="text-4xl font-bold text-emerald-600 mt-4 mb-1">$3.33</Text>
+                <Text className="text-base text-gray-600">per month</Text>
+              </View>
+
+              <View className="gap-3 mb-6">
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                    <CheckCircle size={16} color="#10B981" strokeWidth={3} />
+                  </View>
+                  <Text className="text-sm text-gray-700 flex-1">Unlimited skin scans</Text>
+                </View>
+
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                    <CheckCircle size={16} color="#10B981" strokeWidth={3} />
+                  </View>
+                  <Text className="text-sm text-gray-700 flex-1">AI-powered analysis</Text>
+                </View>
+
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                    <CheckCircle size={16} color="#10B981" strokeWidth={3} />
+                  </View>
+                  <Text className="text-sm text-gray-700 flex-1">Personalized recommendations</Text>
+                </View>
+
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                    <CheckCircle size={16} color="#10B981" strokeWidth={3} />
+                  </View>
+                  <Text className="text-sm text-gray-700 flex-1">Cancel anytime</Text>
+                </View>
+              </View>
+
+              <Pressable 
+                onPress={handleSubscribe} 
+                className="py-5 rounded-2xl items-center bg-emerald-500 active:bg-emerald-600"
+                android_ripple={{ color: "#059669" }}
+              >
+                <Text className="text-white text-lg font-semibold">Subscribe Now</Text>
+              </Pressable>
+            </View>
+
+            {/* Info */}
+            <View className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+              <Text className="text-sm text-blue-800 text-center">
+                Subscribe to get unlimited access to all skin analysis features
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 

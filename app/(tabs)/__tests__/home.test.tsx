@@ -3,11 +3,13 @@ import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Home from "../home";
 import { useAuth } from "../../../src/ctx/AuthContext";
 import { getRecentCompletedScans } from "../../../src/lib/scan";
+import { hasActiveSubscription } from "../../../src/lib/billing";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
 jest.mock("../../../src/ctx/AuthContext");
 jest.mock("../../../src/lib/scan");
+jest.mock("../../../src/lib/billing");
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
@@ -16,6 +18,8 @@ jest.mock("lucide-react-native", () => ({
   Droplet: "Droplet",
   Zap: "Zap",
   LogOut: "LogOut",
+  Crown: "Crown",
+  Lock: "Lock",
 }));
 jest.mock("react-native-svg", () => ({
   __esModule: true,
@@ -35,6 +39,8 @@ describe("Home", () => {
       user: { id: "user-123", email: "test@example.com" },
       signOut: mockSignOut,
     });
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
+    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
   });
 
   it("should render welcome message with user name", async () => {
@@ -94,8 +100,21 @@ describe("Home", () => {
     });
   });
 
-  it("should navigate to capture when scan button pressed", async () => {
-    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
+  it("should navigate to subscribe when scan button pressed (unsubscribed)", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Subscribe to Scan")).toBeTruthy();
+    });
+
+    fireEvent.press(getByText("Subscribe to Scan"));
+    expect(mockRouter.push).toHaveBeenCalledWith("/subscribe");
+  });
+
+  it("should navigate to capture when scan button pressed (subscribed)", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
 
     const { getByText } = render(<Home />);
 
@@ -108,12 +127,12 @@ describe("Home", () => {
   });
 
   it("should render scan button when no scans", async () => {
-    (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
 
     const { getByText } = render(<Home />);
 
     await waitFor(() => {
-      expect(getByText("Take a New Scan")).toBeTruthy();
+      expect(getByText("Subscribe to Scan")).toBeTruthy();
     });
   });
 

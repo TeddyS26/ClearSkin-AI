@@ -17,10 +17,17 @@ export default function SignUp() {
       if (pw !== pw2) return Alert.alert("Passwords do not match");
       if (pw.length < 8) return Alert.alert("Password must be at least 8 characters");
       setBusy(true);
-      const { error } = await supabase.auth.signUp({ email: email.trim(), password: pw });
+      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: pw });
       if (error) throw error;
-      Alert.alert("Account created", "Please sign in now.");
-      router.replace("/auth/sign-in");
+      
+      // If email confirmation is disabled, user is auto-logged in
+      if (data?.session) {
+        router.replace("/subscribe");
+      } else {
+        // Email confirmation required
+        Alert.alert("Check your email", "Please confirm your email address to continue.");
+        router.replace("/auth/sign-in");
+      }
     } catch (e: any) {
       Alert.alert("Sign up failed", e.message ?? String(e));
     } finally { setBusy(false); }

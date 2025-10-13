@@ -1,27 +1,53 @@
 import { Tabs, useRouter, Redirect } from "expo-router";
 import { useAuth } from "../../src/ctx/AuthContext";
 import { Pressable, View, Platform } from "react-native";
-import { Home, Sun, Camera, Activity, History } from "lucide-react-native";
+import { Home, Sun, Camera, Activity, History, Lock } from "lucide-react-native";
+import { useEffect, useState } from "react";
+import { hasActiveSubscription } from "../../src/lib/billing";
 
 function CenterScanButton() {
   const router = useRouter();
+  const [hasSubscription, setHasSubscription] = useState(false);
+
+  useEffect(() => {
+    // Check subscription status
+    async function checkSub() {
+      const active = await hasActiveSubscription();
+      setHasSubscription(active);
+    }
+    checkSub();
+    
+    // Recheck periodically
+    const interval = setInterval(checkSub, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <Pressable 
-      onPress={() => router.push("/scan/capture")}
+      onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
       style={{
         top: -20,
         justifyContent: 'center',
         alignItems: 'center',
       }}
     >
-      <View className="w-20 h-20 rounded-full bg-emerald-500 items-center justify-center shadow-lg" style={{
-        shadowColor: "#10B981",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
-      }}>
-        <Camera size={36} color="white" strokeWidth={2.5} />
+      <View 
+        className={`w-20 h-20 rounded-full items-center justify-center shadow-lg ${
+          hasSubscription ? "bg-emerald-500" : "bg-gray-400"
+        }`} 
+        style={{
+          shadowColor: hasSubscription ? "#10B981" : "#9CA3AF",
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+      >
+        {hasSubscription ? (
+          <Camera size={36} color="white" strokeWidth={2.5} />
+        ) : (
+          <Lock size={36} color="white" strokeWidth={2.5} />
+        )}
       </View>
     </Pressable>
   );

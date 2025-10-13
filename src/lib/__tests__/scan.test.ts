@@ -1,4 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
+import { Alert } from "react-native";
 import { supabase } from "../supabase";
 import {
   getAccessToken,
@@ -16,6 +17,9 @@ import {
 // Mock the modules
 jest.mock("expo-file-system/legacy");
 jest.mock("../supabase");
+
+// Mock Alert
+jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
 describe("scan.ts", () => {
   beforeEach(() => {

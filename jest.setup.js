@@ -48,6 +48,18 @@ jest.mock("expo-image-picker", () => ({
   },
 }));
 
+// Mock @stripe/stripe-react-native
+jest.mock("@stripe/stripe-react-native", () => ({
+  StripeProvider: ({ children }) => children,
+  useStripe: jest.fn(() => ({
+    initPaymentSheet: jest.fn(async () => ({ error: null })),
+    presentPaymentSheet: jest.fn(async () => ({ error: null })),
+  })),
+}));
+
+// Don't mock billing or scan functions globally - let individual tests handle these
+// This prevents mock conflicts where tests can't override global mocks
+
 // Mock Supabase client (can be overridden in individual test files)
 jest.mock("./src/lib/supabase", () => ({
   supabase: {
@@ -111,6 +123,7 @@ global.Alert = {
 // Setup process.env
 process.env.EXPO_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
 process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = "test-key";
+process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY = "pk_test_mock_key";
 
 // Clean up after each test to prevent async leaks
 afterEach(() => {

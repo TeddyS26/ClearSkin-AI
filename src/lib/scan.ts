@@ -142,3 +142,14 @@ export function fmtDate(dt?: string) {
   const d = new Date(dt);
   return d.toLocaleString();
 }
+
+export async function authorizeScan() {
+  const token = await getAccessToken();
+  const res = await fetch(`${FUNC_BASE}/authorize-scan`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error || "Authorization failed");
+  return json as { allowed: boolean; reason?: "subscription"|"credit"; remaining?: number|null };
+}
