@@ -12,6 +12,15 @@ node_modules/
 .env.local
 .env.*.local
 
+# Credentials and sensitive files
+credentials.json
+google-service-account.json
+*.keystore
+*.jks
+*.p12
+*.key
+*.pem
+
 # IDEs
 .vscode/
 .idea/

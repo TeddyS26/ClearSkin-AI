@@ -3,11 +3,11 @@ import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput,
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
-import { 
-  ArrowLeft, 
-  CreditCard, 
-  Lock, 
-  LogOut, 
+import {
+  ArrowLeft,
+  CreditCard,
+  Lock,
+  LogOut,
   Crown,
   ChevronRight,
   User,
@@ -15,7 +15,8 @@ import {
   Shield,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  Download
 } from "lucide-react-native";
 import { openBillingPortal, getSubscriptionStatus } from "../src/lib/billing";
 import { supabase } from "../src/lib/supabase";
@@ -33,6 +34,7 @@ export default function Settings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [exportingData, setExportingData] = useState(false);
 
   useEffect(() => {
     loadSubscriptionStatus();
@@ -42,10 +44,10 @@ export default function Settings() {
     try {
       // Get current user
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      
+
       // Try to get subscription
       const sub = await getSubscriptionStatus();
-      
+
       // If no subscription found, let's check the database directly
       if (!sub && currentUser) {
         const { data: allSubs, error } = await supabase
@@ -53,12 +55,12 @@ export default function Settings() {
           .select("*")
           .eq("user_id", currentUser.id)
           .order("created_at", { ascending: false }); // Get newest first
-        
+
         // Check if there's ANY subscription
         if (allSubs && allSubs.length > 0) {
           // Prioritize active or trialing subscriptions
           const activeSub = allSubs.find(s => s.status === "active" || s.status === "trialing");
-          
+
           if (activeSub) {
             setSubscription(activeSub);
           } else {
@@ -67,7 +69,7 @@ export default function Settings() {
           return;
         }
       }
-      
+
       setSubscription(sub);
     } catch (error) {
       // Error loading subscription
@@ -132,12 +134,14 @@ export default function Settings() {
       Alert.alert(
         "Success",
         "Your password has been changed successfully",
-        [{ text: "OK", onPress: () => {
-          setShowPasswordModal(false);
-          setCurrentPassword("");
-          setNewPassword("");
-          setConfirmPassword("");
-        }}]
+        [{
+          text: "OK", onPress: () => {
+            setShowPasswordModal(false);
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+          }
+        }]
       );
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to change password");
@@ -234,7 +238,7 @@ export default function Settings() {
           const { data: userFiles } = await supabase.storage
             .from("scan")
             .list(`user/${user.id}`);
-          
+
           if (userFiles && userFiles.length > 0) {
             const userFilePaths = userFiles.map(file => `user/${user.id}/${file.name}`);
             await supabase.storage.from("scan").remove(userFilePaths);
@@ -244,26 +248,52 @@ export default function Settings() {
         }
       }
 
-      // 2. Delete all scan sessions
+      // 2. Cancel Stripe subscription if exists
+      const { data: activeSubs } = await supabase
+        .from("subscriptions")
+        .select("stripe_subscription_id")
+        .eq("user_id", user.id)
+        .in("status", ["active", "trialing"]);
+
+      if (activeSubs && activeSubs.length > 0) {
+        // Call edge function to cancel Stripe subscription
+        for (const sub of activeSubs) {
+          if (sub.stripe_subscription_id) {
+            try {
+              await supabase.functions.invoke('cancel-subscription', {
+                body: { subscriptionId: sub.stripe_subscription_id },
+                headers: {
+                  Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                },
+              });
+            } catch (cancelError) {
+              // Continue even if cancellation fails - we'll still delete the account
+              console.error('Failed to cancel subscription:', cancelError);
+            }
+          }
+        }
+      }
+
+      // 3. Delete all scan sessions
       await supabase
         .from("scan_sessions")
         .delete()
         .eq("user_id", user.id);
 
-      // 3. Delete all subscriptions
+      // 4. Delete all subscription records
       await supabase
         .from("subscriptions")
         .delete()
         .eq("user_id", user.id);
 
-      // 4. Delete the auth user account (this will cascade to other related data)
+      // 5. Delete the auth user account (this will cascade to other related data)
       const { error: deleteError } = await supabase.rpc("delete_user");
 
       if (deleteError) {
         throw deleteError;
       }
 
-      // 5. Sign out
+      // 6. Sign out
       await signOut();
 
       Alert.alert(
@@ -288,32 +318,91 @@ export default function Settings() {
     router.push("/terms-of-service");
   };
 
-  const SettingsButton = ({ 
-    icon: Icon, 
-    title, 
-    subtitle, 
-    onPress, 
+  const handleExportData = async () => {
+    Alert.alert(
+      "Export Your Data",
+      "This will generate a JSON file containing all your personal data, scan history, and results. The file will be sent to your registered email address.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Export Data",
+          onPress: async () => {
+            setExportingData(true);
+            try {
+              if (!user) throw new Error("No user found");
+
+              // Call the edge function to export and email data
+              const response = await supabase.functions.invoke('export-user-data', {
+                headers: {
+                  Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                },
+              });
+
+              // Check for errors in the response
+              if (response.error && response.error.context) {
+                try {
+                  const errorBody = await response.error.context.text();
+                  const errorData = JSON.parse(errorBody);
+                  if (errorData.error) {
+                    throw new Error(errorData.error);
+                  }
+                } catch (parseError) {
+                  // If we can't parse the error, show generic message
+                  throw new Error('Failed to export data. Please try again or contact support.');
+                }
+              }
+
+              if (response.data && response.data.error) {
+                throw new Error(response.data.error);
+              }
+
+              if (response.error) {
+                throw new Error('Failed to export data. Please try again or contact support.');
+              }
+
+              Alert.alert(
+                "Export Sent! 📧",
+                `Your data has been sent to ${user.email}. Please check your inbox (and spam folder).\n\nThe email includes a JSON file with all your scan history and account information.`,
+                [{ text: "OK" }]
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Export Failed",
+                error.message || "Failed to export data. Please try again or contact support at clearskinai@gmail.com"
+              );
+            } finally {
+              setExportingData(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const SettingsButton = ({
+    icon: Icon,
+    title,
+    subtitle,
+    onPress,
     danger = false,
-    loading = false 
-  }: { 
-    icon: any; 
-    title: string; 
-    subtitle?: string; 
-    onPress: () => void; 
+    loading = false
+  }: {
+    icon: any;
+    title: string;
+    subtitle?: string;
+    onPress: () => void;
     danger?: boolean;
     loading?: boolean;
   }) => (
     <Pressable
       onPress={onPress}
       disabled={loading}
-      className={`bg-white rounded-2xl p-4 mb-3 shadow-sm flex-row items-center ${
-        loading ? "opacity-50" : "active:opacity-70"
-      }`}
+      className={`bg-white rounded-2xl p-4 mb-3 shadow-sm flex-row items-center ${loading ? "opacity-50" : "active:opacity-70"
+        }`}
       android_ripple={{ color: danger ? "#FEE2E2" : "#F3F4F6" }}
     >
-      <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${
-        danger ? "bg-red-100" : "bg-gray-100"
-      }`}>
+      <View className={`w-12 h-12 rounded-xl items-center justify-center mr-4 ${danger ? "bg-red-100" : "bg-gray-100"
+        }`}>
         {loading ? (
           <ActivityIndicator size="small" color={danger ? "#EF4444" : "#6B7280"} />
         ) : (
@@ -321,9 +410,8 @@ export default function Settings() {
         )}
       </View>
       <View className="flex-1">
-        <Text className={`text-base font-semibold mb-0.5 ${
-          danger ? "text-red-600" : "text-gray-900"
-        }`}>
+        <Text className={`text-base font-semibold mb-0.5 ${danger ? "text-red-600" : "text-gray-900"
+          }`}>
           {title}
         </Text>
         {subtitle && (
@@ -343,8 +431,8 @@ export default function Settings() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <ScrollView 
-        className="flex-1" 
+      <ScrollView
+        className="flex-1"
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         <View className="px-5 pt-6 pb-4">
@@ -376,7 +464,7 @@ export default function Settings() {
             <Text className="text-gray-900 text-lg font-bold mb-3">
               Subscription
             </Text>
-            
+
             {loading ? (
               <View className="bg-white rounded-2xl p-6 items-center shadow-sm">
                 <ActivityIndicator size="large" color="#10B981" />
@@ -456,6 +544,13 @@ export default function Settings() {
             <Text className="text-gray-900 text-lg font-bold mb-3">
               Legal & Privacy
             </Text>
+            <SettingsButton
+              icon={Download}
+              title="Export My Data"
+              subtitle="Download all your personal data (GDPR)"
+              onPress={handleExportData}
+              loading={exportingData}
+            />
             <SettingsButton
               icon={Shield}
               title="Privacy Policy"
@@ -608,9 +703,8 @@ export default function Settings() {
                 <Pressable
                   onPress={handleChangePassword}
                   disabled={changingPassword}
-                  className={`py-4 rounded-xl items-center ${
-                    changingPassword ? "bg-emerald-300" : "bg-emerald-500 active:bg-emerald-600"
-                  }`}
+                  className={`py-4 rounded-xl items-center ${changingPassword ? "bg-emerald-300" : "bg-emerald-500 active:bg-emerald-600"
+                    }`}
                 >
                   {changingPassword ? (
                     <ActivityIndicator color="#FFFFFF" />
