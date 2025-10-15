@@ -1,112 +1,98 @@
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { View, Text, ActivityIndicator, Alert } from "react-native";
+import * as Linking from "expo-linking";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CheckCircle, XCircle } from "lucide-react-native";
 import { supabase } from "../../src/lib/supabase";
 
 export default function Confirm() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(true);
+  const [message, setMessage] = useState("Confirming your email…");
 
   useEffect(() => {
-    handleConfirmation();
+    (async () => {
+      try {
+        // Handle initial deep link (when app is cold-started from the email link)
+        const initialUrl = await Linking.getInitialURL();
+        if (initialUrl) {
+          await handleUrl(initialUrl);
+          return;
+        }
+
+        // If no initial URL (navigated here internally), try to read current URL from router
+        // This is a no-op but keeps UX consistent
+        setBusy(false);
+        setMessage("You're all set. Redirecting…");
+        router.replace("/subscribe");
+      } catch (e: any) {
+        setBusy(false);
+        Alert.alert("Confirmation failed", e.message ?? String(e));
+        router.replace("/auth/sign-in");
+      }
+    })();
+
+    // Also subscribe to URL events in case the app is already open
+    const sub = Linking.addEventListener("url", async ({ url }) => {
+      await handleUrl(url);
+    });
+    return () => sub.remove();
   }, []);
 
-  const handleConfirmation = async () => {
+  async function handleUrl(url: string) {
     try {
-      // Get the token from URL params
-      const token = params.token as string;
-      const type = params.type as string;
+      setBusy(true);
+      setMessage("Finalizing confirmation…");
 
-      if (!token) {
-        setStatus("error");
-        setMessage("Invalid confirmation link");
-        setTimeout(() => router.replace("/auth/sign-in"), 3000);
+      // Supabase sends tokens in the hash fragment for email links.
+      // Example: clearskinai://auth/confirm#access_token=...&refresh_token=...&type=signup
+      const hashIndex = url.indexOf("#");
+      const fragment = hashIndex >= 0 ? url.slice(hashIndex + 1) : "";
+      const params = new URLSearchParams(fragment);
+
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        if (error) throw error;
+        setMessage("Email confirmed! Redirecting…");
+        router.replace("/subscribe");
         return;
       }
 
-      // Verify the email with Supabase
-      if (type === "signup" || type === "email") {
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: token,
-          type: "email",
-        });
-
-        if (error) {
-          setStatus("error");
-          setMessage(error.message || "Confirmation failed");
-          setTimeout(() => router.replace("/auth/sign-in"), 3000);
-        } else {
-          setStatus("success");
-          setMessage("Email confirmed successfully!");
-          setTimeout(() => router.replace("/(tabs)/home"), 2000);
-        }
-      } else {
-        // For other confirmation types, redirect to sign in
-        setStatus("success");
-        setMessage("Email confirmed! Please sign in.");
-        setTimeout(() => router.replace("/auth/sign-in"), 2000);
+      // Some flows (PKCE/OAuth) provide a `code` param instead
+      const parsed = Linking.parse(url);
+      const code = (parsed.queryParams?.code as string | undefined) ?? undefined;
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) throw error;
+        setMessage("Signed in. Redirecting…");
+        router.replace("/subscribe");
+        return;
       }
-    } catch (error: any) {
-      setStatus("error");
-      setMessage("An error occurred during confirmation");
-      setTimeout(() => router.replace("/auth/sign-in"), 3000);
+
+      throw new Error("No tokens found in confirmation link.");
+    } catch (e: any) {
+      Alert.alert("Confirmation failed", e.message ?? String(e));
+      router.replace("/auth/sign-in");
+    } finally {
+      setBusy(false);
     }
-  };
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
-      <View className="flex-1 items-center justify-center px-6">
-        {status === "loading" && (
-          <>
+      <View className="flex-1 items-center justify-center p-8">
+        <View className="bg-white rounded-3xl p-8 items-center w-full max-w-md">
+          {busy ? (
             <ActivityIndicator size="large" color="#10B981" />
-            <Text className="text-gray-900 text-xl font-semibold mt-6">
-              Confirming your email...
-            </Text>
-            <Text className="text-gray-600 text-base mt-2 text-center">
-              Please wait a moment
-            </Text>
-          </>
-        )}
-
-        {status === "success" && (
-          <>
-            <View className="w-20 h-20 rounded-full bg-emerald-100 items-center justify-center mb-6">
-              <CheckCircle size={48} color="#10B981" strokeWidth={2.5} />
-            </View>
-            <Text className="text-gray-900 text-2xl font-bold text-center mb-3">
-              Success!
-            </Text>
-            <Text className="text-gray-600 text-base text-center">
-              {message}
-            </Text>
-            <Text className="text-gray-500 text-sm text-center mt-4">
-              Redirecting you...
-            </Text>
-          </>
-        )}
-
-        {status === "error" && (
-          <>
-            <View className="w-20 h-20 rounded-full bg-red-100 items-center justify-center mb-6">
-              <XCircle size={48} color="#EF4444" strokeWidth={2.5} />
-            </View>
-            <Text className="text-gray-900 text-2xl font-bold text-center mb-3">
-              Oops!
-            </Text>
-            <Text className="text-gray-600 text-base text-center">
-              {message}
-            </Text>
-            <Text className="text-gray-500 text-sm text-center mt-4">
-              Redirecting you to sign in...
-            </Text>
-          </>
-        )}
+          ) : null}
+          <Text className="text-lg text-gray-800 mt-4 text-center">{message}</Text>
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
+ 

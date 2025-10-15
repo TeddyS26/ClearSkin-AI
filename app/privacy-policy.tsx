@@ -192,7 +192,7 @@ export default function PrivacyPolicy() {
           <Paragraph>
             Our App is intended for users aged 13 and older. We do not knowingly collect personal information from children under 13. 
             If you are a parent or guardian and believe your child under 13 has provided us with personal information, 
-            please contact us at clearskinai@gmail.com, and we will delete such information from our systems.
+            please contact us at contact@clearskinai.ca, and we will delete such information from our systems.
           </Paragraph>
           <Paragraph>
             For users aged 13-18, we recommend parental guidance when using the App and its skin analysis features.
@@ -223,7 +223,7 @@ export default function PrivacyPolicy() {
             If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us at:
           </Paragraph>
           <Paragraph>
-            Email: clearskinai@gmail.com{"\n"}
+            Email: contact@clearskinai.ca{"\n"}
             Name: ClearSkin AI (Operated by Teddy-Michael Sannan){"\n"}
             Location: Ontario, Canada
           </Paragraph>

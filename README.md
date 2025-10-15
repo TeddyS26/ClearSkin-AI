@@ -396,7 +396,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Teddy-Michael Sannan**
 - Location: Ontario, Canada
-- Email: clearskinai@gmail.com
+- Email: contact@clearskinai.ca
 
 ## 🙏 Acknowledgments
 
@@ -417,7 +417,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 ### For Users
-- Email: clearskinai@gmail.com
+- Email: contact@clearskinai.ca
 - Privacy Policy: Available in-app
 - Terms of Service: Available in-app
 

@@ -14,26 +14,11 @@
       "bundleIdentifier": "com.clearskin.ai",
       "infoPlist": {
         "NSCameraUsageDescription": "We use the camera to capture your face photos for skin analysis."
-      },
-      "associatedDomains": ["applinks:clearskinai.com"]
+      }
     },
     "android": {
       "permissions": ["CAMERA"],
-      "package": "com.clearskin.ai",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "clearskinai.com",
-              "pathPrefix": "/auth"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      "package": "com.clearskin.ai"
     },
     "plugins": ["expo-router"],
     "experiments": { "typedRoutes": true }

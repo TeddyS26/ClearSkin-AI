@@ -367,7 +367,7 @@ export default function TermsOfService() {
             If you have any questions, concerns, or feedback regarding these Terms, please contact us at:
           </Paragraph>
           <Paragraph>
-            Email: clearskinai@gmail.com{"\n"}
+            Email: contact@clearskinai.ca{"\n"}
             Service Name: ClearSkin AI{"\n"}
             Operator: Teddy-Michael Sannan{"\n"}
             Location: Ontario, Canada

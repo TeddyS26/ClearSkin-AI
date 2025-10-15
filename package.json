@@ -16,6 +16,7 @@
     "@stripe/stripe-react-native": "^0.54.1",
     "@supabase/supabase-js": "^2.74.0",
     "expo": "~54.0.12",
+    "expo-auth-session": "^7.0.8",
     "expo-camera": "^17.0.8",
     "expo-constants": "~18.0.9",
     "expo-image-manipulator": "^14.0.7",
