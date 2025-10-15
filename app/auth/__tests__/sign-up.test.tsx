@@ -11,6 +11,11 @@ jest.mock("expo-router", () => ({
   Link: "Link",
 }));
 
+// Mock expo-auth-session
+jest.mock("expo-auth-session", () => ({
+  makeRedirectUri: jest.fn(() => "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"),
+}));
+
 // Mock lucide-react-native
 jest.mock("lucide-react-native", () => ({
   Mail: "Mail",
@@ -129,6 +134,9 @@ describe("SignUp", () => {
       expect(supabase.auth.signUp).toHaveBeenCalledWith({
         email: "test@example.com",
         password: "password123",
+        options: {
+          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+        }
       });
       expect(mockReplace).toHaveBeenCalledWith("/subscribe");
     });
@@ -159,12 +167,14 @@ describe("SignUp", () => {
       expect(supabase.auth.signUp).toHaveBeenCalledWith({
         email: "test@example.com",
         password: "password123",
+        options: {
+          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+        }
       });
-      expect(Alert.alert).toHaveBeenCalledWith(
-        "Check your email",
-        "Please confirm your email address to continue."
-      );
-      expect(mockReplace).toHaveBeenCalledWith("/auth/sign-in");
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: "/auth/check-email",
+        params: { email: "test@example.com" }
+      });
     });
   });
 
@@ -190,6 +200,9 @@ describe("SignUp", () => {
       expect(supabase.auth.signUp).toHaveBeenCalledWith({
         email: "test@example.com",
         password: "password123",
+        options: {
+          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+        }
       });
     });
   });
@@ -320,10 +333,10 @@ describe("SignUp", () => {
 
     await waitFor(() => {
       expect(supabase.auth.signUp).toHaveBeenCalled();
-      expect(Alert.alert).toHaveBeenCalledWith(
-        "Check your email",
-        "Please confirm your email address to continue."
-      );
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: "/auth/check-email",
+        params: { email: "test@example.com" }
+      });
     });
   });
 
