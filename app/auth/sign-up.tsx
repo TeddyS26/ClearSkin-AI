@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { Link, useRouter } from "expo-router";
+import * as AuthSession from "expo-auth-session";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../src/lib/supabase";
 import { Mail, Lock, CheckCircle } from "lucide-react-native";
@@ -17,19 +18,44 @@ export default function SignUp() {
       if (pw !== pw2) return Alert.alert("Passwords do not match");
       if (pw.length < 8) return Alert.alert("Password must be at least 8 characters");
       setBusy(true);
-      const { data, error } = await supabase.auth.signUp({ email: email.trim(), password: pw });
+      // Use Expo AuthSession proxy so links open your app in Expo Go
+      const emailRedirectTo = AuthSession.makeRedirectUri({ useProxy: true, path: "/auth/confirm" } as any);
+      const { data, error } = await supabase.auth.signUp({ 
+        email: email.trim(), 
+        password: pw,
+        options: { emailRedirectTo }
+      });
+      
       if (error) throw error;
       
       // If email confirmation is disabled, user is auto-logged in
       if (data?.session) {
         router.replace("/subscribe");
       } else {
-        // Email confirmation required
-        Alert.alert("Check your email", "Please confirm your email address to continue.");
-        router.replace("/auth/sign-in");
+        // Email confirmation required - redirect to check email screen
+        // @ts-ignore - route exists but not in generated types yet
+        router.replace({ pathname: "/auth/check-email", params: { email: email.trim() } });
       }
     } catch (e: any) {
-      Alert.alert("Sign up failed", e.message ?? String(e));
+      // Handle specific Supabase errors
+      if (e.message?.includes("already registered") || e.message?.includes("User already registered")) {
+        Alert.alert(
+          "Email already exists", 
+          "An account with this email already exists. Try signing in instead.",
+          [
+            { text: "Sign In", onPress: () => router.replace("/auth/sign-in") },
+            { text: "OK", style: "cancel" }
+          ]
+        );
+      } else if (e.message?.includes("Invalid email")) {
+        Alert.alert("Invalid email", "Please enter a valid email address.");
+      } else if (e.message?.includes("Password should be at least")) {
+        Alert.alert("Password too short", "Password must be at least 8 characters long.");
+      } else if (e.message?.includes("rate limit")) {
+        Alert.alert("Too many attempts", "Please wait a moment before trying again.");
+      } else {
+        Alert.alert("Sign up failed", e.message ?? "Something went wrong. Please try again.");
+      }
     } finally { setBusy(false); }
   };
 

@@ -368,7 +368,7 @@ export default function Settings() {
             } catch (error: any) {
               Alert.alert(
                 "Export Failed",
-                error.message || "Failed to export data. Please try again or contact support at clearskinai@gmail.com"
+                error.message || "Failed to export data. Please try again or contact support at contact@clearskinai.ca"
               );
             } finally {
               setExportingData(false);
