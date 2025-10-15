@@ -16,7 +16,8 @@ import {
   X,
   Eye,
   EyeOff,
-  Download
+  Download,
+  MessageSquare
 } from "lucide-react-native";
 import { openBillingPortal, getSubscriptionStatus } from "../src/lib/billing";
 import { supabase } from "../src/lib/supabase";
@@ -318,6 +319,10 @@ export default function Settings() {
     router.push("/terms-of-service");
   };
 
+  const openContact = () => {
+    router.push("/contact" as any);
+  };
+
   const handleExportData = async () => {
     Alert.alert(
       "Export Your Data",
@@ -536,6 +541,19 @@ export default function Settings() {
               title="Change Password"
               subtitle="Update your account password"
               onPress={() => setShowPasswordModal(true)}
+            />
+          </View>
+
+          {/* Support Section */}
+          <View className="mb-6">
+            <Text className="text-gray-900 text-lg font-bold mb-3">
+              Support
+            </Text>
+            <SettingsButton
+              icon={MessageSquare}
+              title="Contact & Support"
+              subtitle="Get help or send us feedback"
+              onPress={openContact}
             />
           </View>
 
