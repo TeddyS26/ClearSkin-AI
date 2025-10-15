@@ -85,7 +85,7 @@ export default function Subscribe() {
         // Enable Google Pay
         googlePay: {
           merchantCountryCode: 'US',
-          testEnv: true, // Set to false for production
+          testEnv: false, // Production mode
         },
       });
 
