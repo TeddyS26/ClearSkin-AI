@@ -23,7 +23,7 @@ export default function TermsOfService() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: October 13, 2025
+          Last Updated: October 15, 2025
         </Text>
 
         <Section title="1. Acceptance of Terms">
@@ -163,7 +163,17 @@ export default function TermsOfService() {
             <BulletPoint>Display your analysis results and history to you</BulletPoint>
           </Subsection>
 
-          <Subsection title="7.2 Prohibited Content">
+          <Subsection title="7.2 Contact Form Usage">
+            <Paragraph>
+              When using our contact form, you agree to:
+            </Paragraph>
+            <BulletPoint>Provide accurate and truthful information</BulletPoint>
+            <BulletPoint>Not submit spam, abusive, or inappropriate messages</BulletPoint>
+            <BulletPoint>Respect our support team and maintain professional communication</BulletPoint>
+            <BulletPoint>Allow us to use your contact information to respond to your inquiry</BulletPoint>
+          </Subsection>
+
+          <Subsection title="7.3 Prohibited Content">
             <Paragraph>
               You may not submit content that:
             </Paragraph>
@@ -171,6 +181,7 @@ export default function TermsOfService() {
             <BulletPoint>Violates any third-party rights</BulletPoint>
             <BulletPoint>Contains inappropriate, offensive, or illegal content</BulletPoint>
             <BulletPoint>Contains malware, viruses, or harmful code</BulletPoint>
+            <BulletPoint>Includes spam, harassment, or abusive language in contact form submissions</BulletPoint>
           </Subsection>
         </Section>
 
@@ -210,6 +221,7 @@ export default function TermsOfService() {
           <BulletPoint>OpenAI for AI-powered skin analysis</BulletPoint>
           <BulletPoint>Stripe for payment processing</BulletPoint>
           <BulletPoint>Supabase for data storage and authentication</BulletPoint>
+          <BulletPoint>Resend for email communications and contact form processing</BulletPoint>
           <Paragraph>
             Your use of these third-party services is subject to their respective terms of service and privacy policies. 
             We are not responsible for the actions, content, or policies of these third-party services.
