@@ -7,8 +7,15 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "../src/ctx/AuthContext";
 import { useEffect } from "react";
-import { BackHandler, Platform } from "react-native";
+import { BackHandler, Platform, LogBox } from "react-native";
 import { StripeProvider } from "@stripe/stripe-react-native";
+
+// Suppress known non-critical warnings
+LogBox.ignoreLogs([
+  // Stripe NativeEventEmitter warnings (known issue, not critical)
+  'new NativeEventEmitter() was called with a non-null argument without the required `addListener` method',
+  'new NativeEventEmitter() was called with a non-null argument without the required `removeListeners` method',
+]);
 
 export default function RootLayout() {
   // Note: Back button prevention is now handled per-screen (e.g., review, loading)

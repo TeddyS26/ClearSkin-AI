@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
@@ -435,11 +435,13 @@ export default function Settings() {
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingBottom: 100 }}
-      >
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
+      <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 100 }}
+        >
         <View className="px-5 pt-6 pb-4">
           <Pressable
             onPress={() => router.back()}
@@ -623,134 +625,135 @@ export default function Settings() {
             <Text className="text-gray-400 text-xs mt-1">Version 1.0.0</Text>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* Change Password Modal */}
-      <Modal
-        visible={showPasswordModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowPasswordModal(false)}
-      >
-        <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '80%' }}>
-            {/* Modal Header */}
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-gray-900 text-2xl font-bold">Change Password</Text>
-              <Pressable
-                onPress={() => setShowPasswordModal(false)}
-                className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center active:opacity-70"
-              >
-                <X size={20} color="#374151" strokeWidth={2} />
-              </Pressable>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Current Password */}
-              <View className="mb-4">
-                <Text className="text-gray-700 text-sm font-medium mb-2">Current Password</Text>
-                <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
-                  <Lock size={20} color="#9CA3AF" strokeWidth={2} />
-                  <TextInput
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    placeholder="Enter current password"
-                    secureTextEntry={!showCurrentPassword}
-                    className="flex-1 py-4 px-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <Pressable onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
-                    {showCurrentPassword ? (
-                      <EyeOff size={20} color="#9CA3AF" strokeWidth={2} />
-                    ) : (
-                      <Eye size={20} color="#9CA3AF" strokeWidth={2} />
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* New Password */}
-              <View className="mb-4">
-                <Text className="text-gray-700 text-sm font-medium mb-2">New Password</Text>
-                <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
-                  <Lock size={20} color="#9CA3AF" strokeWidth={2} />
-                  <TextInput
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="Enter new password"
-                    secureTextEntry={!showNewPassword}
-                    className="flex-1 py-4 px-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <Pressable onPress={() => setShowNewPassword(!showNewPassword)}>
-                    {showNewPassword ? (
-                      <EyeOff size={20} color="#9CA3AF" strokeWidth={2} />
-                    ) : (
-                      <Eye size={20} color="#9CA3AF" strokeWidth={2} />
-                    )}
-                  </Pressable>
-                </View>
-                <Text className="text-gray-500 text-xs mt-1">Must be at least 8 characters</Text>
-              </View>
-
-              {/* Confirm New Password */}
-              <View className="mb-6">
-                <Text className="text-gray-700 text-sm font-medium mb-2">Confirm New Password</Text>
-                <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
-                  <Lock size={20} color="#9CA3AF" strokeWidth={2} />
-                  <TextInput
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Re-enter new password"
-                    secureTextEntry={!showConfirmPassword}
-                    className="flex-1 py-4 px-3 text-gray-900"
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                    {showConfirmPassword ? (
-                      <EyeOff size={20} color="#9CA3AF" strokeWidth={2} />
-                    ) : (
-                      <Eye size={20} color="#9CA3AF" strokeWidth={2} />
-                    )}
-                  </Pressable>
-                </View>
-              </View>
-
-              {/* Action Buttons */}
-              <View className="gap-3">
+        {/* Change Password Modal */}
+        <Modal
+          visible={showPasswordModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowPasswordModal(false)}
+        >
+          <View className="flex-1 bg-black/50 justify-end">
+            <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '80%' }}>
+              {/* Modal Header */}
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-gray-900 text-2xl font-bold">Change Password</Text>
                 <Pressable
-                  onPress={handleChangePassword}
-                  disabled={changingPassword}
-                  className={`py-4 rounded-xl items-center ${changingPassword ? "bg-emerald-300" : "bg-emerald-500 active:bg-emerald-600"
-                    }`}
+                  onPress={() => setShowPasswordModal(false)}
+                  className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center active:opacity-70"
                 >
-                  {changingPassword ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <Text className="text-white text-base font-semibold">
-                      Change Password
+                  <X size={20} color="#374151" strokeWidth={2} />
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Current Password */}
+                <View className="mb-4">
+                  <Text className="text-gray-700 text-sm font-medium mb-2">Current Password</Text>
+                  <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
+                    <Lock size={20} color="#9CA3AF" strokeWidth={2} />
+                    <TextInput
+                      value={currentPassword}
+                      onChangeText={setCurrentPassword}
+                      placeholder="Enter current password"
+                      secureTextEntry={!showCurrentPassword}
+                      className="flex-1 py-4 px-3 text-gray-900"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                    <Pressable onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
+                      {showCurrentPassword ? (
+                        <EyeOff size={20} color="#9CA3AF" strokeWidth={2} />
+                      ) : (
+                        <Eye size={20} color="#9CA3AF" strokeWidth={2} />
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* New Password */}
+                <View className="mb-4">
+                  <Text className="text-gray-700 text-sm font-medium mb-2">New Password</Text>
+                  <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
+                    <Lock size={20} color="#9CA3AF" strokeWidth={2} />
+                    <TextInput
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      placeholder="Enter new password"
+                      secureTextEntry={!showNewPassword}
+                      className="flex-1 py-4 px-3 text-gray-900"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                    <Pressable onPress={() => setShowNewPassword(!showNewPassword)}>
+                      {showNewPassword ? (
+                        <EyeOff size={20} color="#9CA3AF" strokeWidth={2} />
+                      ) : (
+                        <Eye size={20} color="#9CA3AF" strokeWidth={2} />
+                      )}
+                    </Pressable>
+                  </View>
+                  <Text className="text-gray-500 text-xs mt-1">Must be at least 8 characters</Text>
+                </View>
+
+                {/* Confirm New Password */}
+                <View className="mb-6">
+                  <Text className="text-gray-700 text-sm font-medium mb-2">Confirm New Password</Text>
+                  <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
+                    <Lock size={20} color="#9CA3AF" strokeWidth={2} />
+                    <TextInput
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="Re-enter new password"
+                      secureTextEntry={!showConfirmPassword}
+                      className="flex-1 py-4 px-3 text-gray-900"
+                      placeholderTextColor="#9CA3AF"
+                    />
+                    <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                      {showConfirmPassword ? (
+                        <EyeOff size={20} color="#9CA3AF" strokeWidth={2} />
+                      ) : (
+                        <Eye size={20} color="#9CA3AF" strokeWidth={2} />
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View className="gap-3">
+                  <Pressable
+                    onPress={handleChangePassword}
+                    disabled={changingPassword}
+                    className={`py-4 rounded-xl items-center ${changingPassword ? "bg-emerald-300" : "bg-emerald-500 active:bg-emerald-600"
+                      }`}
+                  >
+                    {changingPassword ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text className="text-white text-base font-semibold">
+                        Change Password
+                      </Text>
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      setShowPasswordModal(false);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    }}
+                    className="py-4 rounded-xl items-center bg-gray-100 active:bg-gray-200"
+                  >
+                    <Text className="text-gray-700 text-base font-semibold">
+                      Cancel
                     </Text>
-                  )}
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    setShowPasswordModal(false);
-                    setCurrentPassword("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                  }}
-                  className="py-4 rounded-xl items-center bg-gray-100 active:bg-gray-200"
-                >
-                  <Text className="text-gray-700 text-base font-semibold">
-                    Cancel
-                  </Text>
-                </Pressable>
-              </View>
-            </ScrollView>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+        </Modal>
+      </SafeAreaView>
+    </>
   );
 }

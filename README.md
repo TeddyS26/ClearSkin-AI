@@ -442,8 +442,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 **Teddy-Michael Sannan**  
 📍 **Location**: Ontario, Canada  
 📧 **Contact**: contact@clearskinai.ca  
-🔗 **LinkedIn**: [Connect with me](https://linkedin.com/in/teddy-sannan)  
-💼 **Portfolio**: [View my work](https://yourportfolio.com)
+🔗 **LinkedIn**: [Connect with me](https://www.linkedin.com/in/teddysannan/)
 
 ### **Skills Demonstrated in This Project**
 - **React Native Development**: Cross-platform mobile applications
@@ -481,8 +480,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - 📋 **Terms of Service**: Available in-app and online
 
 ### **For Developers**
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/yourusername/ClearSkin-AI/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/ClearSkin-AI/discussions)
 - 📚 **Expo Community**: [Expo Forums](https://forums.expo.dev/)
 
 ## 🎯 **Project Status & Roadmap**

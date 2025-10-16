@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform, StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
@@ -103,11 +103,13 @@ export default function Contact() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <KeyboardAvoidingView 
-        className="flex-1" 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+    <>
+      <StatusBar barStyle="dark-content" backgroundColor="#F9FAFB" />
+      <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+        <KeyboardAvoidingView 
+          className="flex-1" 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 100 }}
@@ -248,7 +250,8 @@ export default function Contact() {
             </View>
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </>
   );
 }

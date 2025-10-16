@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: October 13, 2025
+          Last Updated: October 15, 2025
         </Text>
 
         <Section title="1. Introduction">
@@ -68,7 +68,17 @@ export default function PrivacyPolicy() {
             <BulletPoint>Transaction history</BulletPoint>
           </Subsection>
 
-          <Subsection title="2.4 Automatically Collected Information">
+          <Subsection title="2.4 Contact and Communication Data">
+            <Paragraph>
+              When you contact us through the App's contact form, we collect:
+            </Paragraph>
+            <BulletPoint>Your contact messages and inquiries</BulletPoint>
+            <BulletPoint>Subject lines and message content</BulletPoint>
+            <BulletPoint>Your email address for response purposes</BulletPoint>
+            <BulletPoint>Timestamp of your communication</BulletPoint>
+          </Subsection>
+
+          <Subsection title="2.5 Automatically Collected Information">
             <Paragraph>
               When you use the App, we may automatically collect:
             </Paragraph>
@@ -88,7 +98,8 @@ export default function PrivacyPolicy() {
           <BulletPoint>Track your skin health progress over time</BulletPoint>
           <BulletPoint>Process subscription payments and manage your account</BulletPoint>
           <BulletPoint>Send you important updates about your account or the App</BulletPoint>
-          <BulletPoint>Respond to your inquiries and provide customer support</BulletPoint>
+          <BulletPoint>Respond to your inquiries and provide customer support through our contact form</BulletPoint>
+          <BulletPoint>Process and respond to your contact form submissions</BulletPoint>
           <BulletPoint>Improve our App's features and user experience</BulletPoint>
           <BulletPoint>Detect, prevent, and address technical issues or fraudulent activity</BulletPoint>
           <BulletPoint>Comply with legal obligations</BulletPoint>
@@ -120,6 +131,13 @@ export default function PrivacyPolicy() {
               Stripe's use of your personal information is governed by their privacy policy.
             </Paragraph>
           </Subsection>
+
+          <Subsection title="4.4 Resend (Email Services)">
+            <Paragraph>
+              We use Resend to send emails, including contact form responses and data export emails. 
+              Your email address and message content are processed by Resend in accordance with their privacy policy.
+            </Paragraph>
+          </Subsection>
         </Section>
 
         <Section title="5. Data Retention">
@@ -130,6 +148,7 @@ export default function PrivacyPolicy() {
           <BulletPoint>All your personal information is permanently deleted</BulletPoint>
           <BulletPoint>All your scan photos and analysis results are permanently deleted</BulletPoint>
           <BulletPoint>Your subscription is cancelled (if active)</BulletPoint>
+          <BulletPoint>Your contact form submissions and communication history are permanently deleted</BulletPoint>
           <BulletPoint>Some financial records may be retained as required by law for tax and accounting purposes</BulletPoint>
         </Section>
 
