@@ -18,8 +18,8 @@ export default function SignUp() {
       if (pw !== pw2) return Alert.alert("Passwords do not match");
       if (pw.length < 8) return Alert.alert("Password must be at least 8 characters");
       setBusy(true);
-      // Use Expo AuthSession proxy so links open your app in Expo Go
-      const emailRedirectTo = AuthSession.makeRedirectUri({ useProxy: true, path: "/auth/confirm" } as any);
+      // Use the new domain for email confirmation
+      const emailRedirectTo = "https://www.clearskinai.ca/confirm.html";
       const { data, error } = await supabase.auth.signUp({ 
         email: email.trim(), 
         password: pw,
