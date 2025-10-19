@@ -69,7 +69,7 @@ describe("CheckEmail", () => {
         type: 'signup',
         email: "test@example.com",
         options: {
-          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+          emailRedirectTo: "https://www.clearskinai.ca/confirm.html"
         }
       });
     });

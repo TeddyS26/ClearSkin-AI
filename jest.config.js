@@ -17,7 +17,8 @@ module.exports = {
     "!app/auth/confirm.tsx",
     "!app/subscribe.tsx",
     "!app/auth/sign-in.tsx",
-    "!app/checkout/*.tsx"
+    "!app/checkout/*.tsx",
+    "!app/(tabs)/_layout.tsx"
   ],
   coverageThreshold: {
     global: {

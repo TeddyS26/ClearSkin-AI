@@ -43,6 +43,12 @@
         "track": "internal"
       }
     }
+  },
+  "web": {
+    "production": {
+      "buildCommand": "expo export -p web",
+      "outputDir": "dist"
+    }
   }
 }
 

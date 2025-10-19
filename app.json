@@ -3,6 +3,9 @@
     "name": "ClearSkin AI",
     "slug": "clearskin-ai",
     "scheme": "clearskinai",
+    "web": {
+      "bundler": "metro"
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

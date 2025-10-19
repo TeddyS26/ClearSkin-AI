@@ -135,7 +135,7 @@ describe("SignUp", () => {
         email: "test@example.com",
         password: "password123",
         options: {
-          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+          emailRedirectTo: "https://www.clearskinai.ca/confirm.html"
         }
       });
       expect(mockReplace).toHaveBeenCalledWith("/subscribe");
@@ -168,7 +168,7 @@ describe("SignUp", () => {
         email: "test@example.com",
         password: "password123",
         options: {
-          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+          emailRedirectTo: "https://www.clearskinai.ca/confirm.html"
         }
       });
       expect(mockReplace).toHaveBeenCalledWith({
@@ -201,7 +201,7 @@ describe("SignUp", () => {
         email: "test@example.com",
         password: "password123",
         options: {
-          emailRedirectTo: "https://auth.expo.io/@test/clearskin-ai/--/auth/confirm"
+          emailRedirectTo: "https://www.clearskinai.ca/confirm.html"
         }
       });
     });

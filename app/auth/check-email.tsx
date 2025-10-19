@@ -37,7 +37,7 @@ export default function CheckEmail() {
         type: 'signup',
         email: email,
         options: {
-          emailRedirectTo: AuthSession.makeRedirectUri({ useProxy: true, path: "/auth/confirm" } as any)
+          emailRedirectTo: "https://www.clearskinai.ca/confirm.html"
         }
       });
       
