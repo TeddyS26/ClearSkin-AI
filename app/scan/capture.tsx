@@ -248,7 +248,10 @@ export default function Capture() {
             <View className="bg-white rounded-3xl p-8 shadow-lg mb-6">
               <View className="items-center mb-6">
                 <Crown size={32} color="#F59E0B" strokeWidth={2} />
-                <Text className="text-4xl font-bold text-emerald-600 mt-4 mb-1">$3.33</Text>
+                <View className="flex-row items-baseline mt-4 mb-1">
+                  <Text className="text-4xl font-bold text-emerald-600">$3.33</Text>
+                  <Text className="text-sm text-gray-500 ml-2">USD</Text>
+                </View>
                 <Text className="text-base text-gray-600">per month</Text>
               </View>
 
