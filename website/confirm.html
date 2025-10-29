@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Confirmation - ClearSkin AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 48px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: #10B981;
+            border-radius: 20px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+        
+        h1 {
+            color: #111827;
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .subtitle {
+            color: #6B7280;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 32px;
+        }
+        
+        .status {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #ECFDF5;
+            color: #065F46;
+            border: 1px solid #A7F3D0;
+        }
+        
+        .status.error {
+            background: #FEF2F2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
+        }
+        
+        .status.loading {
+            background: #F0F9FF;
+            color: #1E40AF;
+            border: 1px solid #BAE6FD;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #10B981;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .button {
+            background: #10B981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+        
+        .button:hover {
+            background: #059669;
+        }
+        
+        .button:disabled {
+            background: #9CA3AF;
+            cursor: not-allowed;
+        }
+        
+        .footer {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #E5E7EB;
+            color: #6B7280;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">✨</div>
+        <h1>ClearSkin AI</h1>
+        <p class="subtitle">Confirming your email address...</p>
+        
+        <div id="status" class="status loading">
+            <span class="spinner"></span>
+            Processing confirmation...
+        </div>
+        
+        <div id="actions" style="display: none;">
+            <a href="#" id="openApp" class="button">Open ClearSkin AI</a>
+        </div>
+        
+        <div class="footer">
+            <p>If you're having trouble, please contact us at <strong>contact@clearskinai.ca</strong></p>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const hash = window.location.hash;
+        
+        // Extract tokens from hash fragment (Supabase format)
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const type = hashParams.get('type');
+        
+        // Extract code from query params (PKCE format)
+        const code = urlParams.get('code');
+        
+        const statusEl = document.getElementById('status');
+        const actionsEl = document.getElementById('actions');
+        const openAppEl = document.getElementById('openApp');
+        
+        function updateStatus(message, type = 'loading') {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+        
+        function showSuccess() {
+            updateStatus('✅ Email confirmed successfully!', 'success');
+            actionsEl.style.display = 'block';
+        }
+        
+        function showError(message) {
+            updateStatus(`❌ ${message}`, 'error');
+            actionsEl.style.display = 'block';
+        }
+        
+        // Handle different confirmation flows
+        if (accessToken && refreshToken) {
+            // Supabase token-based confirmation
+            showSuccess();
+            // Store tokens for the app to use
+            localStorage.setItem('supabase_tokens', JSON.stringify({
+                access_token: accessToken,
+                refresh_token: refreshToken,
+                type: type
+            }));
+        } else if (code) {
+            // PKCE code-based confirmation
+            showSuccess();
+            // Store code for the app to exchange
+            localStorage.setItem('supabase_code', code);
+        } else {
+            // No confirmation data found
+            showError('Invalid confirmation link. Please try again.');
+        }
+        
+        // Set up app opening
+        openAppEl.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Try to open the mobile app
+            const appScheme = 'clearskinai://auth/confirm';
+            const appStoreUrl = 'https://apps.apple.com/app/clearskin-ai'; // Update with actual App Store URL
+            const playStoreUrl = 'https://play.google.com/store/apps/details?id=com.clearskin.ai'; // Update with actual Play Store URL
+            
+            // Create a hidden iframe to attempt app opening
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = appScheme;
+            document.body.appendChild(iframe);
+            
+            // Fallback to app stores after a delay
+            setTimeout(() => {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isAndroid = /Android/.test(navigator.userAgent);
+                
+                if (isIOS) {
+                    window.location.href = appStoreUrl;
+                } else if (isAndroid) {
+                    window.location.href = playStoreUrl;
+                } else {
+                    // Desktop - show instructions
+                    alert('Please open the ClearSkin AI app on your mobile device to complete the confirmation.');
+                }
+            }, 2000);
+        });
+        
+        // Auto-redirect after successful confirmation (optional)
+        if (accessToken || code) {
+            setTimeout(() => {
+                openAppEl.click();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
