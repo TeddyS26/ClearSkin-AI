@@ -91,21 +91,23 @@ export default function SignIn() {
               <Text className="text-white text-lg font-semibold">{busy ? "Signing in..." : "Sign In"}</Text>
             </Pressable>
 
-            <Pressable 
-              onPress={() => router.push("/auth/forgot-password" as any)}
-              className="py-2 items-center mt-2"
-            >
-              <Text className="text-emerald-600 font-semibold text-base">
-                Forgot your password?
+            <View className="space-y-4">
+              <Pressable
+                onPress={() => router.push("/auth/forgot-password" as any)}
+                className="items-center py-2"
+              >
+                <Text className="text-emerald-600 font-semibold text-base">
+                  Forgot Password?
+                </Text>
+              </Pressable>
+              
+              <Text className="text-center text-base text-gray-600">
+                Don&apos;t have an account?{" "}
+                <Link href="/auth/sign-up" className="text-emerald-600 font-semibold">
+                  Sign up
+                </Link>
               </Text>
-            </Pressable>
-
-            <Text className="text-center text-base text-gray-600 mt-4">
-              Don&apos;t have an account?{" "}
-              <Link href="/auth/sign-up" className="text-emerald-600 font-semibold">
-                Sign up
-              </Link>
-            </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
