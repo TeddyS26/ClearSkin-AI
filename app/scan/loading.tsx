@@ -6,7 +6,7 @@ import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanC
 import { Sparkles, Upload, Brain, CheckCircle } from "lucide-react-native";
 
 export default function Loading() {
-  const { front, left, right } = useLocalSearchParams<{ front: string; left: string; right: string }>();
+  const { front, left, right, context } = useLocalSearchParams<{ front: string; left: string; right: string; context?: string }>();
   const [msg, setMsg] = useState("Starting…");
   const [err, setErr] = useState<string | null>(null);
   const router = useRouter();
@@ -49,7 +49,7 @@ export default function Loading() {
         const paths = await uploadThreePhotos(scanId, userId, { front: front!, left: left!, right: right! });
 
         setMsg("Analyzing your skin…");
-        await callAnalyzeFunction(scanId, paths);
+        await callAnalyzeFunction(scanId, paths, context?.trim() || undefined);
 
         setMsg("Finishing up…");
         const row = await waitForScanComplete(scanId, 90_000, 2000);
