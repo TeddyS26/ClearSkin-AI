@@ -1,13 +1,14 @@
-import { View, Text, Image, Pressable, ScrollView, Modal, Dimensions, BackHandler } from "react-native";
+import { View, Text, Image, Pressable, ScrollView, Modal, Dimensions, BackHandler, TextInput } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CheckCircle, RotateCcw, Sparkles } from "lucide-react-native";
+import { CheckCircle, RotateCcw, Sparkles, Info } from "lucide-react-native";
 import { useState, useEffect } from "react";
 
 export default function Review() {
   const { front, left, right } = useLocalSearchParams<{ front: string; left: string; right: string }>();
   const router = useRouter();
   const [expandedImage, setExpandedImage] = useState<{ uri: string; label: string } | null>(null);
+  const [context, setContext] = useState<string>("");
   const screenHeight = Dimensions.get('window').height;
 
   // Prevent back navigation
@@ -50,11 +51,48 @@ export default function Review() {
           </View>
         ))}
 
+        {/* Optional Context Input */}
+        <View className="mb-6">
+          <View className="flex-row items-center mb-2">
+            <Info size={18} color="#6B7280" strokeWidth={2} style={{ marginRight: 6 }} />
+            <Text className="text-base font-semibold text-gray-900">Additional Context (Optional)</Text>
+          </View>
+          <View className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+            <TextInput
+              className="px-4 py-3 text-base text-gray-900"
+              placeholder="E.g., My skin is super dry on my cheeks but my nose gets really oily..."
+              placeholderTextColor="#9CA3AF"
+              multiline
+              numberOfLines={4}
+              value={context}
+              onChangeText={setContext}
+              textAlignVertical="top"
+              maxLength={500}
+              style={{ minHeight: 100 }}
+              testID="context-input"
+            />
+            <View className="px-4 pb-3 flex-row justify-end">
+              <Text className="text-xs text-gray-400">{context.length}/500</Text>
+            </View>
+          </View>
+          <Text className="text-sm text-gray-500 mt-2">
+            Provide any relevant information about your skin condition to help improve analysis accuracy
+          </Text>
+        </View>
+
         {/* Analyze Button */}
         <Pressable 
           className="bg-emerald-500 py-5 rounded-2xl items-center mb-4 shadow-sm flex-row justify-center active:opacity-90"
           android_ripple={{ color: "#059669" }}
-          onPress={() => router.push({ pathname: "/scan/loading", params: { front, left, right } })}
+          onPress={() => router.push({ 
+            pathname: "/scan/loading", 
+            params: { 
+              front, 
+              left, 
+              right,
+              ...(context.trim() ? { context: context.trim() } : {})
+            } 
+          })}
         >
           <View style={{ marginRight: 8 }}>
             <Sparkles size={22} color="#FFFFFF" strokeWidth={2} />

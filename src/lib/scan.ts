@@ -47,7 +47,7 @@ export async function uploadThreePhotos(scanId: string, userId: string, files: {
   return { frontPath, leftPath, rightPath };
 }
 
-export async function callAnalyzeFunction(scanId: string, paths: { frontPath: string; leftPath: string; rightPath: string; }) {
+export async function callAnalyzeFunction(scanId: string, paths: { frontPath: string; leftPath: string; rightPath: string; }, context?: string) {
   const token = await getAccessToken();
   const res = await fetch(`${FUNC_BASE}/analyze-image`, {
     method: "POST",
@@ -56,7 +56,8 @@ export async function callAnalyzeFunction(scanId: string, paths: { frontPath: st
       scan_session_id: scanId,
       front_path: paths.frontPath,
       left_path:  paths.leftPath,
-      right_path: paths.rightPath
+      right_path: paths.rightPath,
+      ...(context ? { context } : {})
     })
   });
   if (!res.ok) {

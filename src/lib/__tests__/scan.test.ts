@@ -230,6 +230,107 @@ describe("scan.ts", () => {
         })
       ).rejects.toThrow("API Error");
     });
+
+    it("should include context in request body when provided", async () => {
+      const mockToken = "token-123";
+      const mockScanId = "scan-456";
+      const mockPaths = {
+        frontPath: "path/front.jpg",
+        leftPath: "path/left.jpg",
+        rightPath: "path/right.jpg",
+      };
+      const mockContext = "My skin is dry on cheeks but oily on nose";
+      const mockResponse = { success: true };
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: { access_token: mockToken } },
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockResponse),
+      });
+
+      await callAnalyzeFunction(mockScanId, mockPaths, mockContext);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/functions/v1/analyze-image"),
+        expect.objectContaining({
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${mockToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            scan_session_id: mockScanId,
+            front_path: mockPaths.frontPath,
+            left_path: mockPaths.leftPath,
+            right_path: mockPaths.rightPath,
+            context: mockContext,
+          }),
+        })
+      );
+    });
+
+    it("should not include context in request body when not provided", async () => {
+      const mockToken = "token-123";
+      const mockScanId = "scan-456";
+      const mockPaths = {
+        frontPath: "path/front.jpg",
+        leftPath: "path/left.jpg",
+        rightPath: "path/right.jpg",
+      };
+      const mockResponse = { success: true };
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: { access_token: mockToken } },
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockResponse),
+      });
+
+      await callAnalyzeFunction(mockScanId, mockPaths);
+
+      const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const requestBody = JSON.parse(callArgs[1].body);
+
+      expect(requestBody).not.toHaveProperty("context");
+      expect(requestBody).toEqual({
+        scan_session_id: mockScanId,
+        front_path: mockPaths.frontPath,
+        left_path: mockPaths.leftPath,
+        right_path: mockPaths.rightPath,
+      });
+    });
+
+    it("should not include context when context is undefined", async () => {
+      const mockToken = "token-123";
+      const mockScanId = "scan-456";
+      const mockPaths = {
+        frontPath: "path/front.jpg",
+        leftPath: "path/left.jpg",
+        rightPath: "path/right.jpg",
+      };
+      const mockResponse = { success: true };
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: { access_token: mockToken } },
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue(mockResponse),
+      });
+
+      await callAnalyzeFunction(mockScanId, mockPaths, undefined);
+
+      const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+      const requestBody = JSON.parse(callArgs[1].body);
+
+      expect(requestBody).not.toHaveProperty("context");
+    });
   });
 
   describe("getScan", () => {
