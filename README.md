@@ -49,7 +49,7 @@ ClearSkin AI is a **production-ready mobile application** that uses artificial i
 ### 💳 **Monetization & Business Logic**
 - **Stripe Integration**: Professional payment processing with Apple Pay/Google Pay
 - **Subscription Management**: Automated billing with Stripe billing portal
-- **Freemium Model**: Free tier with premium features ($3.33/month)
+- **Freemium Model**: Free tier with premium features ($3.33 USD/month)
 - **User Retention**: Progress tracking and personalized recommendations
 
 ## 🛠️ **Technical Architecture**
@@ -292,7 +292,7 @@ This project showcases **TailwindCSS for React Native** - a cutting-edge approac
 | Tier | Price | Features |
 |------|-------|----------|
 | **Free** | $0/month | • Browse scan history<br>• View previous results<br>• Basic app access |
-| **Premium** | $3.33/month | • Unlimited AI scans<br>• Personalized routines<br>• Progress tracking<br>• Priority support |
+| **Premium** | $3.33 USD/month | • Unlimited AI scans<br>• Personalized routines<br>• Progress tracking<br>• Priority support |
 
 ### **Revenue Optimization Features**
 - **Retention Tracking**: Progress monitoring encourages continued use

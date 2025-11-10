@@ -38,10 +38,12 @@ export default function SignUp() {
       }
     } catch (e: any) {
       // Handle specific Supabase errors
-      if (e.message?.includes("already registered") || e.message?.includes("User already registered")) {
+      if (e.message?.includes("already registered") || 
+          e.message?.includes("User already registered") ||
+          e.message?.includes("email address is already registered")) {
         Alert.alert(
-          "Email already exists", 
-          "An account with this email already exists. Try signing in instead.",
+          "Email Already Exists", 
+          "An account with this email address already exists. Please sign in instead.",
           [
             { text: "Sign In", onPress: () => router.replace("/auth/sign-in") },
             { text: "OK", style: "cancel" }

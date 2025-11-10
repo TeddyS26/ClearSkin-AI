@@ -59,7 +59,17 @@ export async function callAnalyzeFunction(scanId: string, paths: { frontPath: st
       right_path: paths.rightPath
     })
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    // Try to parse error message from JSON response
+    const errorText = await res.text();
+    try {
+      const errorData = JSON.parse(errorText);
+      throw new Error(errorData.error || `Analysis failed with status ${res.status}`);
+    } catch {
+      // If JSON parsing fails, use text response
+      throw new Error(errorText || `Analysis failed with status ${res.status}`);
+    }
+  }
   return res.json();
 }
 

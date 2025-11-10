@@ -186,7 +186,10 @@ export default function Subscribe() {
           {/* Pricing Card */}
           <View className="bg-white rounded-3xl p-8 shadow-lg mb-6">
             <View className="items-center mb-6">
-              <Text className="text-5xl font-bold text-emerald-600 mb-1">$3.33</Text>
+              <View className="flex-row items-baseline">
+                <Text className="text-5xl font-bold text-emerald-600 mb-1">$3.33</Text>
+                <Text className="text-sm text-gray-500 ml-2">USD</Text>
+              </View>
               <Text className="text-lg text-gray-600">per month</Text>
             </View>
 
