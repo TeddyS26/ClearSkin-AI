@@ -159,5 +159,116 @@ describe("Loading", () => {
       expect(getByText("Analysis failed. Please try again.")).toBeTruthy();
     });
   });
+
+  it("should pass context to callAnalyzeFunction when provided", async () => {
+    const mockParamsWithContext = {
+      ...mockParams,
+      context: "My skin is dry on cheeks",
+    };
+    (useLocalSearchParams as jest.Mock).mockReturnValue(mockParamsWithContext);
+
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({
+      frontPath: "path/front.jpg",
+      leftPath: "path/left.jpg",
+      rightPath: "path/right.jpg",
+    });
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+    });
+
+    render(<Loading />);
+
+    await waitFor(
+      () => {
+        expect(callAnalyzeFunction).toHaveBeenCalledWith(
+          "scan-123",
+          {
+            frontPath: "path/front.jpg",
+            leftPath: "path/left.jpg",
+            rightPath: "path/right.jpg",
+          },
+          "My skin is dry on cheeks"
+        );
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  it("should pass undefined context when not provided", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({
+      frontPath: "path/front.jpg",
+      leftPath: "path/left.jpg",
+      rightPath: "path/right.jpg",
+    });
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+    });
+
+    render(<Loading />);
+
+    await waitFor(
+      () => {
+        expect(callAnalyzeFunction).toHaveBeenCalledWith(
+          "scan-123",
+          {
+            frontPath: "path/front.jpg",
+            leftPath: "path/left.jpg",
+            rightPath: "path/right.jpg",
+          },
+          undefined
+        );
+      },
+      { timeout: 3000 }
+    );
+  });
+
+  it("should trim context before passing to callAnalyzeFunction", async () => {
+    const mockParamsWithWhitespace = {
+      ...mockParams,
+      context: "  My skin is dry  ",
+    };
+    (useLocalSearchParams as jest.Mock).mockReturnValue(mockParamsWithWhitespace);
+
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({
+      frontPath: "path/front.jpg",
+      leftPath: "path/left.jpg",
+      rightPath: "path/right.jpg",
+    });
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+    });
+
+    render(<Loading />);
+
+    await waitFor(
+      () => {
+        expect(callAnalyzeFunction).toHaveBeenCalledWith(
+          "scan-123",
+          {
+            frontPath: "path/front.jpg",
+            leftPath: "path/left.jpg",
+            rightPath: "path/right.jpg",
+          },
+          "My skin is dry"
+        );
+      },
+      { timeout: 3000 }
+    );
+  });
 });
 

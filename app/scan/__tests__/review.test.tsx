@@ -8,6 +8,7 @@ jest.mock("lucide-react-native", () => ({
   CheckCircle: "CheckCircle",
   RotateCcw: "RotateCcw",
   Sparkles: "Sparkles",
+  Info: "Info",
 }));
 
 describe("Review", () => {
@@ -62,6 +63,24 @@ describe("Review", () => {
     });
   });
 
+  it("should navigate to loading with context when context is provided", () => {
+    const { getByText, getByTestId } = render(<Review />);
+    const contextInput = getByTestId("context-input");
+    
+    // Enter context
+    fireEvent.changeText(contextInput, "My skin is dry on cheeks");
+    
+    fireEvent.press(getByText("Start Analysis"));
+    
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/scan/loading",
+      params: {
+        ...mockParams,
+        context: "My skin is dry on cheeks",
+      },
+    });
+  });
+
   it("should go back when retake photos pressed", () => {
     const { getByText } = render(<Review />);
     
@@ -103,6 +122,65 @@ describe("Review", () => {
     
     // Modal should be closed
     expect(queryByText("Close")).toBeNull();
+  });
+
+  it("should render context input field", () => {
+    const { getByTestId, getByText } = render(<Review />);
+    
+    expect(getByText("Additional Context (Optional)")).toBeTruthy();
+    expect(getByTestId("context-input")).toBeTruthy();
+    expect(getByText(/Provide any relevant information/)).toBeTruthy();
+  });
+
+  it("should display character counter", () => {
+    const { getByTestId, getByText } = render(<Review />);
+    const contextInput = getByTestId("context-input");
+    
+    // Initially should show 0/500
+    expect(getByText("0/500")).toBeTruthy();
+    
+    // Type some text
+    fireEvent.changeText(contextInput, "Test context");
+    
+    // Should update counter
+    expect(getByText("12/500")).toBeTruthy();
+  });
+
+  it("should limit context input to 500 characters", () => {
+    const { getByTestId } = render(<Review />);
+    const contextInput = getByTestId("context-input");
+    
+    // Verify maxLength prop is set correctly
+    expect(contextInput.props.maxLength).toBe(500);
+  });
+
+  it("should not include context in params when empty", () => {
+    const { getByText } = render(<Review />);
+    
+    fireEvent.press(getByText("Start Analysis"));
+    
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/scan/loading",
+      params: mockParams,
+    });
+  });
+
+  it("should trim context before navigation", () => {
+    const { getByText, getByTestId } = render(<Review />);
+    const contextInput = getByTestId("context-input");
+    
+    // Enter context with whitespace
+    fireEvent.changeText(contextInput, "  My skin is dry  ");
+    
+    fireEvent.press(getByText("Start Analysis"));
+    
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/scan/loading",
+      params: {
+        ...mockParams,
+        context: "My skin is dry",
+      },
+    });
   });
 
   it("should match snapshot", () => {
