@@ -7,6 +7,8 @@ import {
   uploadThreePhotos,
   callAnalyzeFunction,
   getScan,
+  isValidScan,
+  deleteScan,
   waitForScanComplete,
   listScans,
   latestCompletedScan,
@@ -377,6 +379,73 @@ describe("scan.ts", () => {
     });
   });
 
+  describe("isValidScan", () => {
+    it("should return true for scan with valid skin_score", () => {
+      const scan = { id: "scan-123", skin_score: 85 };
+      expect(isValidScan(scan)).toBe(true);
+    });
+
+    it("should return true for scan with skin_score of 0", () => {
+      const scan = { id: "scan-123", skin_score: 0 };
+      expect(isValidScan(scan)).toBe(true);
+    });
+
+    it("should return false for scan with null skin_score", () => {
+      const scan = { id: "scan-123", skin_score: null };
+      expect(isValidScan(scan)).toBe(false);
+    });
+
+    it("should return false for scan with undefined skin_score", () => {
+      const scan = { id: "scan-123" };
+      expect(isValidScan(scan)).toBe(false);
+    });
+
+    it("should return false for null scan", () => {
+      expect(isValidScan(null)).toBe(false);
+    });
+
+    it("should return false for undefined scan", () => {
+      expect(isValidScan(undefined)).toBe(false);
+    });
+  });
+
+  describe("deleteScan", () => {
+    it("should delete scan successfully", async () => {
+      const mockScanId = "scan-123";
+
+      const mockDelete = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({
+          error: null,
+        }),
+      });
+
+      (supabase.from as jest.Mock).mockReturnValue({
+        delete: mockDelete,
+      });
+
+      await deleteScan(mockScanId);
+
+      expect(supabase.from).toHaveBeenCalledWith("scan_sessions");
+      expect(mockDelete).toHaveBeenCalled();
+    });
+
+    it("should throw error when delete fails", async () => {
+      const mockError = new Error("Delete failed");
+
+      const mockDelete = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({
+          error: mockError,
+        }),
+      });
+
+      (supabase.from as jest.Mock).mockReturnValue({
+        delete: mockDelete,
+      });
+
+      await expect(deleteScan("scan-123")).rejects.toThrow("Delete failed");
+    });
+  });
+
   describe("waitForScanComplete", () => {
     it("should return when scan is complete", async () => {
       const mockScanId = "scan-123";
@@ -455,12 +524,14 @@ describe("scan.ts", () => {
   describe("listScans", () => {
     it("should fetch scans without cursor", async () => {
       const mockScans = [
-        { id: "scan-1", created_at: "2025-01-01" },
-        { id: "scan-2", created_at: "2025-01-02" },
+        { id: "scan-1", created_at: "2025-01-01", skin_score: 85 },
+        { id: "scan-2", created_at: "2025-01-02", skin_score: 90 },
       ];
 
       const mockQuery = {
         select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue({
           data: mockScans,
@@ -473,6 +544,8 @@ describe("scan.ts", () => {
       const result = await listScans();
 
       expect(result).toEqual(mockScans);
+      expect(mockQuery.eq).toHaveBeenCalledWith("status", "complete");
+      expect(mockQuery.not).toHaveBeenCalledWith("skin_score", "is", null);
       expect(mockQuery.order).toHaveBeenCalledWith("created_at", {
         ascending: false,
       });
@@ -480,11 +553,13 @@ describe("scan.ts", () => {
     });
 
     it("should fetch scans with cursor", async () => {
-      const mockScans = [{ id: "scan-3", created_at: "2025-01-03" }];
+      const mockScans = [{ id: "scan-3", created_at: "2025-01-03", skin_score: 80 }];
       const cursor = "2025-01-05";
 
       const mockQuery = {
         select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         lt: jest.fn().mockResolvedValue({
@@ -506,6 +581,8 @@ describe("scan.ts", () => {
 
       const mockQuery = {
         select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockResolvedValue({
           data: null,
@@ -520,12 +597,13 @@ describe("scan.ts", () => {
   });
 
   describe("latestCompletedScan", () => {
-    it("should fetch latest completed scan", async () => {
-      const mockScan = { id: "scan-123", status: "complete" };
+    it("should fetch latest completed scan with valid skin_score", async () => {
+      const mockScan = { id: "scan-123", status: "complete", skin_score: 85 };
 
       const mockQuery = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
@@ -540,12 +618,14 @@ describe("scan.ts", () => {
 
       expect(result).toEqual(mockScan);
       expect(mockQuery.eq).toHaveBeenCalledWith("status", "complete");
+      expect(mockQuery.not).toHaveBeenCalledWith("skin_score", "is", null);
     });
 
     it("should return null when no completed scans exist", async () => {
       const mockQuery = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({
@@ -567,6 +647,7 @@ describe("scan.ts", () => {
       const mockQuery = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
+        not: jest.fn().mockReturnThis(),
         order: jest.fn().mockReturnThis(),
         limit: jest.fn().mockReturnThis(),
         maybeSingle: jest.fn().mockResolvedValue({

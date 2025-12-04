@@ -1,11 +1,13 @@
 import React from "react";
-import { render, waitFor } from "@testing-library/react-native";
+import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Loading from "../loading";
 import {
   createScanSession,
   uploadThreePhotos,
   callAnalyzeFunction,
   waitForScanComplete,
+  isValidScan,
+  deleteScan,
 } from "../../../src/lib/scan";
 import { useRouter, useLocalSearchParams } from "expo-router";
 
@@ -16,6 +18,7 @@ jest.mock("lucide-react-native", () => ({
   Upload: "Upload",
   Brain: "Brain",
   CheckCircle: "CheckCircle",
+  Camera: "Camera",
 }));
 
 describe("Loading", () => {
@@ -30,6 +33,9 @@ describe("Loading", () => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     (useLocalSearchParams as jest.Mock).mockReturnValue(mockParams);
+    // Default to valid scan
+    (isValidScan as jest.Mock).mockReturnValue(true);
+    (deleteScan as jest.Mock).mockResolvedValue(undefined);
   });
 
   it("should show initial loading message", () => {
@@ -53,7 +59,9 @@ describe("Loading", () => {
     (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
     (waitForScanComplete as jest.Mock).mockResolvedValue({
       status: "complete",
+      skin_score: 85,
     });
+    (isValidScan as jest.Mock).mockReturnValue(true);
 
     const { getByText, unmount } = render(<Loading />);
 
@@ -114,7 +122,9 @@ describe("Loading", () => {
     (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
     (waitForScanComplete as jest.Mock).mockResolvedValue({
       status: "complete",
+      skin_score: 85,
     });
+    (isValidScan as jest.Mock).mockReturnValue(true);
 
     render(<Loading />);
 
@@ -160,6 +170,72 @@ describe("Loading", () => {
     });
   });
 
+  it("should show error when scan is invalid (no face detected)", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({});
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+      skin_score: null, // Invalid scan - no face detected
+    });
+    (isValidScan as jest.Mock).mockReturnValue(false);
+
+    const { getByText } = render(<Loading />);
+
+    await waitFor(() => {
+      expect(getByText("Face Not Detected")).toBeTruthy();
+      expect(getByText(/couldn't detect a face/i)).toBeTruthy();
+    });
+  });
+
+  it("should delete invalid scan and show try again button", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({});
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+      skin_score: null,
+    });
+    (isValidScan as jest.Mock).mockReturnValue(false);
+
+    const { getByText } = render(<Loading />);
+
+    await waitFor(() => {
+      expect(deleteScan).toHaveBeenCalledWith("scan-123");
+      expect(getByText("Try Again")).toBeTruthy();
+    });
+  });
+
+  it("should navigate to capture when try again is pressed", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({});
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+      skin_score: null,
+    });
+    (isValidScan as jest.Mock).mockReturnValue(false);
+
+    const { getByText } = render(<Loading />);
+
+    await waitFor(() => {
+      expect(getByText("Try Again")).toBeTruthy();
+    });
+
+    fireEvent.press(getByText("Try Again"));
+
+    expect(mockRouter.replace).toHaveBeenCalledWith("/scan/capture");
+  });
+
   it("should pass context to callAnalyzeFunction when provided", async () => {
     const mockParamsWithContext = {
       ...mockParams,
@@ -179,6 +255,7 @@ describe("Loading", () => {
     (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
     (waitForScanComplete as jest.Mock).mockResolvedValue({
       status: "complete",
+      skin_score: 85,
     });
 
     render(<Loading />);
@@ -212,6 +289,7 @@ describe("Loading", () => {
     (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
     (waitForScanComplete as jest.Mock).mockResolvedValue({
       status: "complete",
+      skin_score: 85,
     });
 
     render(<Loading />);
@@ -251,6 +329,7 @@ describe("Loading", () => {
     (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
     (waitForScanComplete as jest.Mock).mockResolvedValue({
       status: "complete",
+      skin_score: 85,
     });
 
     render(<Loading />);
