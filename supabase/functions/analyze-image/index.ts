@@ -77,7 +77,6 @@ Respond with ONLY a JSON object:
       },
       body: JSON.stringify({
         model: "gpt-5-mini",
-        temperature: 0.1,
         response_format: {
           type: "json_object"
         },
@@ -125,14 +124,14 @@ Respond with ONLY a JSON object:
   }
 }
 /**
- * Validates that an image contains a face using GPT-5-nano (cheapest/fastest model)
+ * Validates that an image contains a face using GPT-4o-mini (fast, cheap, supports vision)
  * @param imageUrl - Signed URL to the image
  * @param imageLabel - Label for logging (e.g., "front", "left", "right")
  * @returns { valid: boolean, error?: string }
  */ 
 async function validateFaceDetection(imageUrl: string, imageLabel: string) {
   try {
-    console.log(`Validating face detection for ${imageLabel} photo using GPT-5-nano...`);
+    console.log(`Validating face detection for ${imageLabel} photo...`);
     
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -141,9 +140,8 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-5-nano",
-        temperature: 0,
-        max_completion_tokens: 50,
+        model: "gpt-4o-mini",
+        max_tokens: 50,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -176,8 +174,21 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
     }
 
     const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content ?? "{}";
-    const result = JSON.parse(content);
+    const content = data?.choices?.[0]?.message?.content;
+    
+    // Handle empty or missing content
+    if (!content || content.trim() === "") {
+      console.log(`Face detection returned empty response for ${imageLabel}, skipping validation`);
+      return { valid: true };
+    }
+    
+    let result;
+    try {
+      result = JSON.parse(content);
+    } catch (parseError) {
+      console.error(`Failed to parse face detection response for ${imageLabel}: ${content}`);
+      return { valid: true }; // Fail open
+    }
     
     if (result.face_detected === false) {
       return {
@@ -871,7 +882,6 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
     ];
     const payload = {
       model: "gpt-5-mini",
-      temperature: 0.35,
       response_format: {
         type: "json_object"
       },
@@ -887,7 +897,7 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       ]
     };
     const ctrl = new AbortController();
-    const timeout = setTimeout(()=>ctrl.abort("OpenAI timeout"), 120_000);
+    const timeout = setTimeout(()=>ctrl.abort("OpenAI timeout"), 240_000);
     const ai = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
