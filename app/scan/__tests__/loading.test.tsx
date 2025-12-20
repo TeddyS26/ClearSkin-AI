@@ -9,9 +9,15 @@ import {
   isValidScan,
   deleteScan,
 } from "../../../src/lib/scan";
+import {
+  requestNotificationPermissions,
+  notifyScanComplete,
+  scheduleScanReminder,
+} from "../../../src/lib/notifications";
 import { useRouter, useLocalSearchParams } from "expo-router";
 
 jest.mock("../../../src/lib/scan");
+jest.mock("../../../src/lib/notifications");
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   Sparkles: "Sparkles",
@@ -19,6 +25,7 @@ jest.mock("lucide-react-native", () => ({
   Brain: "Brain",
   CheckCircle: "CheckCircle",
   Camera: "Camera",
+  BellRing: "BellRing",
 }));
 
 describe("Loading", () => {
@@ -36,6 +43,10 @@ describe("Loading", () => {
     // Default to valid scan
     (isValidScan as jest.Mock).mockReturnValue(true);
     (deleteScan as jest.Mock).mockResolvedValue(undefined);
+    // Mock notification functions
+    (requestNotificationPermissions as jest.Mock).mockResolvedValue(true);
+    (notifyScanComplete as jest.Mock).mockResolvedValue(undefined);
+    (scheduleScanReminder as jest.Mock).mockResolvedValue(undefined);
   });
 
   it("should show initial loading message", () => {
@@ -349,5 +360,76 @@ describe("Loading", () => {
       { timeout: 3000 }
     );
   });
-});
 
+  it("should request notification permissions on mount", async () => {
+    (createScanSession as jest.Mock).mockImplementation(() => new Promise(() => {}));
+
+    render(<Loading />);
+
+    await waitFor(() => {
+      expect(requestNotificationPermissions).toHaveBeenCalled();
+    });
+  });
+
+  it("should schedule bi-weekly reminder after successful scan", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({});
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+      skin_score: 85,
+    });
+    (isValidScan as jest.Mock).mockReturnValue(true);
+
+    render(<Loading />);
+
+    await waitFor(
+      () => {
+        expect(scheduleScanReminder).toHaveBeenCalled();
+      },
+      { timeout: 5000 }
+    );
+  });
+
+  it("should not schedule reminder for invalid scan (no face detected)", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({});
+    (callAnalyzeFunction as jest.Mock).mockResolvedValue({});
+    (waitForScanComplete as jest.Mock).mockResolvedValue({
+      status: "complete",
+      skin_score: null,
+    });
+    (isValidScan as jest.Mock).mockReturnValue(false);
+
+    render(<Loading />);
+
+    await waitFor(() => {
+      expect(isValidScan).toHaveBeenCalled();
+    });
+
+    // Wait a bit to ensure scheduleScanReminder was not called
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(scheduleScanReminder).not.toHaveBeenCalled();
+  });
+
+  it("should show 'This may take up to a minute' message during analysis", async () => {
+    (createScanSession as jest.Mock).mockResolvedValue({
+      scanId: "scan-123",
+      userId: "user-456",
+    });
+    (uploadThreePhotos as jest.Mock).mockResolvedValue({});
+    (callAnalyzeFunction as jest.Mock).mockImplementation(() => new Promise(() => {}));
+
+    const { getByText } = render(<Loading />);
+
+    await waitFor(() => {
+      expect(getByText(/This may take up to a minute/)).toBeTruthy();
+    });
+  });
+});

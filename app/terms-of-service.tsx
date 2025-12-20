@@ -23,7 +23,7 @@ export default function TermsOfService() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: October 19, 2025
+          Last Updated: December 20, 2025
         </Text>
 
         <Section title="1. Acceptance of Terms">
@@ -57,6 +57,8 @@ export default function TermsOfService() {
           <BulletPoint>Provide personalized skincare recommendations</BulletPoint>
           <BulletPoint>Track your skin health progress over time</BulletPoint>
           <BulletPoint>Suggest skincare routines and products</BulletPoint>
+          <BulletPoint>Send push notifications when scan analysis is complete</BulletPoint>
+          <BulletPoint>Send bi-weekly reminder notifications to encourage regular skin health monitoring</BulletPoint>
         </Section>
 
         <Section title="4. Medical Disclaimer and Product Liability">

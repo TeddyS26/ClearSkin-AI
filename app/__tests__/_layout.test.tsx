@@ -16,9 +16,17 @@ jest.mock("expo-status-bar", () => ({
 }));
 jest.mock("expo-router", () => ({
   Stack: "Stack",
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    back: jest.fn(),
+  })),
 }));
 jest.mock("../../src/ctx/AuthContext", () => ({
   AuthProvider: ({ children }: any) => children,
+}));
+jest.mock("../../src/lib/notifications", () => ({
+  addNotificationResponseListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 describe("RootLayout", () => {
@@ -41,4 +49,3 @@ describe("RootLayout", () => {
 
   // Note: BackHandler is now handled per-screen (review, loading) rather than globally
 });
-

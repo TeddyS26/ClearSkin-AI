@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: October 19, 2025
+          Last Updated: December 20, 2025
         </Text>
 
         <Section title="1. Introduction">
@@ -91,6 +91,19 @@ export default function PrivacyPolicy() {
             <BulletPoint>Camera permissions (only when you actively use the scan feature)</BulletPoint>
             <BulletPoint>Error logs and crash reports</BulletPoint>
           </Subsection>
+
+          <Subsection title="2.6 Push Notification Data">
+            <Paragraph>
+              If you enable push notifications, we collect:
+            </Paragraph>
+            <BulletPoint>Device push notification token</BulletPoint>
+            <BulletPoint>Notification delivery and interaction data</BulletPoint>
+            <BulletPoint>Scan completion timestamps (to schedule reminders)</BulletPoint>
+            <Paragraph>
+              We use this information to send you notifications about scan completion and periodic reminders 
+              to check your skin health. You can disable notifications at any time through your device settings.
+            </Paragraph>
+          </Subsection>
         </Section>
 
         <Section title="3. How We Use Your Information">
@@ -102,6 +115,8 @@ export default function PrivacyPolicy() {
           <BulletPoint>Track your skin health progress over time</BulletPoint>
           <BulletPoint>Process subscription payments and manage your account</BulletPoint>
           <BulletPoint>Send you important updates about your account or the App</BulletPoint>
+          <BulletPoint>Send push notifications when your scan analysis is complete</BulletPoint>
+          <BulletPoint>Send bi-weekly reminder notifications to encourage regular skin health monitoring</BulletPoint>
           <BulletPoint>Respond to your inquiries and provide customer support through our contact form</BulletPoint>
           <BulletPoint>Process and respond to your contact form submissions</BulletPoint>
           <BulletPoint>Improve our App's features and user experience</BulletPoint>
