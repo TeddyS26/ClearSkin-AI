@@ -80,6 +80,18 @@ export async function getScan(scanId: string) {
   return data;
 }
 
+// Check if a scan has valid face detection (skin_score exists)
+export function isValidScan(scan: any): boolean {
+  if (!scan) return false;
+  return scan.skin_score !== null && scan.skin_score !== undefined;
+}
+
+// Delete an invalid scan session
+export async function deleteScan(scanId: string) {
+  const { error } = await supabase.from("scan_sessions").delete().eq("id", scanId);
+  if (error) throw error;
+}
+
 export async function waitForScanComplete(scanId: string, timeoutMs = 90_000, intervalMs = 2000) {
   const start = Date.now();
   while (true) {
@@ -92,9 +104,12 @@ export async function waitForScanComplete(scanId: string, timeoutMs = 90_000, in
 
 export async function listScans({ limit = 20, cursor }: { limit?: number; cursor?: string | null } = {}) {
   // simple keyset pagination using created_at & id
+  // Only return valid scans (with skin_score)
   let q = supabase
     .from("scan_sessions")
     .select("*")
+    .eq("status", "complete")
+    .not("skin_score", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -113,6 +128,7 @@ export async function latestCompletedScan() {
     .from("scan_sessions")
     .select("*")
     .eq("status", "complete")
+    .not("skin_score", "is", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -125,6 +141,7 @@ export async function getRecentCompletedScans(limit: number = 2) {
     .from("scan_sessions")
     .select("*")
     .eq("status", "complete")
+    .not("skin_score", "is", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;

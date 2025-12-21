@@ -27,7 +27,17 @@
       "permissions": ["CAMERA"],
       "package": "com.clearskin.ai"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#10B981",
+          "sounds": []
+        }
+      ]
+    ],
     "experiments": { "typedRoutes": true }
   }
 }
