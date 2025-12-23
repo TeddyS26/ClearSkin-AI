@@ -29,7 +29,8 @@
       "permissions": [
         "CAMERA"
       ],
-      "package": "com.clearskin.ai"
+      "package": "com.clearskin.ai",
+      "versionCode": 2
     },
     "plugins": [
       "expo-router",
