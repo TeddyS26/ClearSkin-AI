@@ -3,28 +3,28 @@ import { useAuth } from "../../src/ctx/AuthContext";
 import { Pressable, View, Platform } from "react-native";
 import { Home, Sun, Camera, Activity, History, Lock } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { hasActiveSubscription } from "../../src/lib/billing";
+import { canScan } from "../../src/lib/billing";
 
 function CenterScanButton() {
   const router = useRouter();
-  const [hasSubscription, setHasSubscription] = useState(false);
+  const [canStartScan, setCanStartScan] = useState(false);
 
   useEffect(() => {
-    // Check subscription status
-    async function checkSub() {
-      const active = await hasActiveSubscription();
-      setHasSubscription(active);
+    // Check if user can scan (has subscription OR hasn't used free scan)
+    async function checkCanScan() {
+      const allowed = await canScan();
+      setCanStartScan(allowed);
     }
-    checkSub();
+    checkCanScan();
     
     // Recheck periodically
-    const interval = setInterval(checkSub, 5000);
+    const interval = setInterval(checkCanScan, 5000);
     return () => clearInterval(interval);
   }, []);
 
   return (
     <Pressable 
-      onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
+      onPress={() => canStartScan ? router.push("/scan/capture") : router.push("/subscribe")}
       style={{
         top: -20,
         justifyContent: 'center',
@@ -33,17 +33,17 @@ function CenterScanButton() {
     >
       <View 
         className={`w-20 h-20 rounded-full items-center justify-center shadow-lg ${
-          hasSubscription ? "bg-emerald-500" : "bg-gray-400"
+          canStartScan ? "bg-emerald-500" : "bg-gray-400"
         }`} 
         style={{
-          shadowColor: hasSubscription ? "#10B981" : "#9CA3AF",
+          shadowColor: canStartScan ? "#10B981" : "#9CA3AF",
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.3,
           shadowRadius: 8,
           elevation: 8,
         }}
       >
-        {hasSubscription ? (
+        {canStartScan ? (
           <Camera size={36} color="white" strokeWidth={2.5} />
         ) : (
           <Lock size={36} color="white" strokeWidth={2.5} />

@@ -2,11 +2,15 @@ import React from "react";
 import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Result from "../result";
 import { getScan } from "../../../src/lib/scan";
+import { hasActiveSubscription } from "../../../src/lib/billing";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
 jest.mock("../../../src/lib/scan");
 jest.mock("../../../src/lib/supabase");
+jest.mock("../../../src/lib/billing", () => ({
+  hasActiveSubscription: jest.fn(),
+}));
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   TrendingUp: "TrendingUp",
@@ -28,6 +32,7 @@ describe("Result", () => {
     jest.clearAllMocks();
     (useLocalSearchParams as jest.Mock).mockReturnValue(mockParams);
     (require("expo-router").useRouter as jest.Mock).mockReturnValue(mockRouter);
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { access_token: "token" } },
     });

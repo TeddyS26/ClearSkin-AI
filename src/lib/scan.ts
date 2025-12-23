@@ -179,5 +179,5 @@ export async function authorizeScan() {
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json?.error || "Authorization failed");
-  return json as { allowed: boolean; reason?: "subscription"|"credit"; remaining?: number|null };
+  return json as { allowed: boolean; reason?: "subscription"|"credit"|"free_trial"; remaining?: number|null; isFreeTier?: boolean };
 }

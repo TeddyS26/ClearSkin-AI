@@ -2,11 +2,16 @@ import React from "react";
 import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Routine from "../routine";
 import { latestCompletedScan } from "../../../src/lib/scan";
+import { hasActiveSubscription, canScan } from "../../../src/lib/billing";
 import { useRouter } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 import { useAuth } from "../../../src/ctx/AuthContext";
 
 jest.mock("../../../src/lib/scan");
+jest.mock("../../../src/lib/billing", () => ({
+  hasActiveSubscription: jest.fn(),
+  canScan: jest.fn(),
+}));
 jest.mock("expo-router");
 jest.mock("../../../src/ctx/AuthContext");
 jest.mock("lucide-react-native", () => ({
@@ -14,6 +19,8 @@ jest.mock("lucide-react-native", () => ({
   Moon: "Moon",
   CheckCircle2: "CheckCircle2",
   Sparkles: "Sparkles",
+  Lock: "Lock",
+  Crown: "Crown",
 }));
 
 describe("Routine", () => {
@@ -25,6 +32,8 @@ describe("Routine", () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: { id: "user-123", email: "test@example.com" },
     });
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
+    (canScan as jest.Mock).mockResolvedValue(true);
   });
 
   it("should show loading indicator initially", () => {
@@ -55,7 +64,10 @@ describe("Routine", () => {
     });
 
     fireEvent.press(getByText("Start a Scan"));
-    expect(mockRouter.push).toHaveBeenCalledWith("/scan/capture");
+    
+    await waitFor(() => {
+      expect(mockRouter.push).toHaveBeenCalledWith("/scan/capture");
+    });
   });
 
   it("should display AM routine when available", async () => {

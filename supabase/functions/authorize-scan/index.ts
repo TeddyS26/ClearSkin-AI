@@ -20,6 +20,7 @@ Deno.serve(async (req)=>{
     if (error || !user) return new Response("Unauthorized", {
       status: 401
     });
+    
     // 1) Active subscription with remaining weekly scans?
     const { data: sub } = await sb.from("subscriptions").select("*").eq("user_id", user.id).eq("status", "active").maybeSingle();
     const { data: tw } = await sb.from("scans_this_week").select("scans_count").eq("user_id", user.id).maybeSingle();
@@ -28,10 +29,12 @@ Deno.serve(async (req)=>{
       return json({
         allowed: true,
         reason: "subscription",
-        remaining: sub.weekly_limit - used
+        remaining: sub.weekly_limit - used,
+        isFreeTier: false
       });
     }
-    // 2) Otherwise, try to use one credit
+    
+    // 2) Try to use one credit
     const { data: creditsRow } = await sb.from("scan_credits").select("credits").eq("user_id", user.id).maybeSingle();
     const credits = creditsRow?.credits ?? 0;
     if (credits > 0) {
@@ -43,12 +46,34 @@ Deno.serve(async (req)=>{
       return json({
         allowed: true,
         reason: "credit",
-        remaining: credits - 1
+        remaining: credits - 1,
+        isFreeTier: false
       });
     }
-    // 3) Block → paywall
+    
+    // 3) Check if user has completed any scans before (free trial check)
+    const { data: existingScans, error: scanError } = await sb
+      .from("scan_sessions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "complete")
+      .not("skin_score", "is", null)
+      .limit(1);
+    
+    // If user has no completed scans, allow 1 free trial scan
+    if (!scanError && (!existingScans || existingScans.length === 0)) {
+      return json({
+        allowed: true,
+        reason: "free_trial",
+        remaining: 0,
+        isFreeTier: true
+      });
+    }
+    
+    // 4) Block → paywall
     return json({
-      allowed: false
+      allowed: false,
+      isFreeTier: false
     });
   } catch (e) {
     return json({

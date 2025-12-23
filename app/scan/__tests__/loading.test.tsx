@@ -10,6 +10,11 @@ import {
   deleteScan,
 } from "../../../src/lib/scan";
 import {
+  hasActiveSubscription,
+  markFreeScanUsed,
+  isFreeScan,
+} from "../../../src/lib/billing";
+import {
   requestNotificationPermissions,
   notifyScanComplete,
   scheduleScanReminder,
@@ -18,6 +23,11 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 
 jest.mock("../../../src/lib/scan");
 jest.mock("../../../src/lib/notifications");
+jest.mock("../../../src/lib/billing", () => ({
+  hasActiveSubscription: jest.fn(),
+  markFreeScanUsed: jest.fn(),
+  isFreeScan: jest.fn(),
+}));
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   Sparkles: "Sparkles",
@@ -47,6 +57,10 @@ describe("Loading", () => {
     (requestNotificationPermissions as jest.Mock).mockResolvedValue(true);
     (notifyScanComplete as jest.Mock).mockResolvedValue(undefined);
     (scheduleScanReminder as jest.Mock).mockResolvedValue(undefined);
+    // Mock billing functions
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
+    (markFreeScanUsed as jest.Mock).mockResolvedValue(undefined);
+    (isFreeScan as jest.Mock).mockResolvedValue(false);
   });
 
   it("should show initial loading message", () => {
@@ -143,7 +157,7 @@ describe("Loading", () => {
       () => {
         expect(mockRouter.replace).toHaveBeenCalledWith({
           pathname: "/scan/result",
-          params: { id: "scan-123" },
+          params: { id: "scan-123", isFreeTier: "false" },
         });
       },
       { timeout: 5000 }

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanComplete, isValidScan, deleteScan, getScan } from "../../src/lib/scan";
 import { requestNotificationPermissions, notifyScanComplete, scheduleScanReminder } from "../../src/lib/notifications";
+import { hasActiveSubscription } from "../../src/lib/billing";
 import { Sparkles, Upload, Brain, CheckCircle, Camera, BellRing } from "lucide-react-native";
 
 export default function Loading() {
@@ -16,8 +17,9 @@ export default function Loading() {
   const router = useRouter();
   const [pulseAnim] = useState(new Animated.Value(1));
   
-  // Track the scan ID and app state for background handling
+  // Track the scan ID, free tier status, and app state for background handling
   const scanIdRef = useRef<string | null>(null);
+  const isFreeTierRef = useRef<boolean>(false);
   const appState = useRef(AppState.currentState);
   const processingComplete = useRef(false);
 
@@ -41,7 +43,7 @@ export default function Loading() {
             if (row.status === "complete") {
               processingComplete.current = true;
               if (isValidScan(row)) {
-                router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current } });
+                router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current, isFreeTier: String(isFreeTierRef.current) } });
               } else {
                 try {
                   await deleteScan(scanIdRef.current);
@@ -101,6 +103,10 @@ export default function Loading() {
       if (processingComplete.current) return;
       
       try {
+        // Check if user is on free tier (no subscription)
+        const hasSubscription = await hasActiveSubscription();
+        isFreeTierRef.current = !hasSubscription;
+        
         setMsg("Creating session…");
         const { scanId, userId } = await createScanSession();
         scanIdRef.current = scanId;
@@ -127,7 +133,7 @@ export default function Loading() {
             if (appState.current !== 'active') {
               await notifyScanComplete(scanId, true);
             }
-            router.replace({ pathname: "/scan/result", params: { id: scanId } });
+            router.replace({ pathname: "/scan/result", params: { id: scanId, isFreeTier: String(isFreeTierRef.current) } });
           } else {
             // Invalid scan - no face detected, delete the scan record
             try {

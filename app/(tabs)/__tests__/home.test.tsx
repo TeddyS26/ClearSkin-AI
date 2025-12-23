@@ -13,7 +13,9 @@ jest.mock("../../../src/lib/billing", () => ({
   hasActiveSubscription: jest.fn(),
   getSubscriptionStatus: jest.fn(),
   openBillingPortal: jest.fn(),
+  canScan: jest.fn(),
 }));
+import { canScan } from "../../../src/lib/billing";
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
@@ -45,6 +47,7 @@ describe("Home", () => {
       signOut: mockSignOut,
     });
     (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
+    (canScan as jest.Mock).mockResolvedValue(false);
     (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
   });
 
@@ -120,6 +123,7 @@ describe("Home", () => {
 
   it("should navigate to capture when scan button pressed (subscribed)", async () => {
     (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
+    (canScan as jest.Mock).mockResolvedValue(true);
 
     const { getByText } = render(<Home />);
 
@@ -128,6 +132,20 @@ describe("Home", () => {
     });
 
     fireEvent.press(getByText("Take a New Scan"));
+    expect(mockRouter.push).toHaveBeenCalledWith("/scan/capture");
+  });
+
+  it("should show free scan button when user can use free scan", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
+    (canScan as jest.Mock).mockResolvedValue(true);
+
+    const { getByText } = render(<Home />);
+
+    await waitFor(() => {
+      expect(getByText("Start Free Scan")).toBeTruthy();
+    });
+
+    fireEvent.press(getByText("Start Free Scan"));
     expect(mockRouter.push).toHaveBeenCalledWith("/scan/capture");
   });
 
@@ -157,6 +175,7 @@ describe("Home", () => {
   });
 
   it("should display skin type when available", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -215,6 +234,7 @@ describe("Home", () => {
   });
 
   it("should display oiliness status low", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -232,6 +252,7 @@ describe("Home", () => {
   });
 
   it("should display oiliness status high", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -249,6 +270,7 @@ describe("Home", () => {
   });
 
   it("should display oiliness status very high", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -436,6 +458,7 @@ describe("Home", () => {
   });
 
   it("should display pore health as Excellent", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -453,6 +476,7 @@ describe("Home", () => {
   });
 
   it("should display pore health as Good", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -470,6 +494,7 @@ describe("Home", () => {
   });
 
   it("should display pore health as Fair", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),
@@ -487,6 +512,7 @@ describe("Home", () => {
   });
 
   it("should display pore health as Needs attention", async () => {
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     const mockScan = {
       id: "scan-1",
       created_at: new Date().toISOString(),

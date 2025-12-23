@@ -27,8 +27,8 @@ describe("AuthContext", () => {
 
   it("should provide initial loading state", () => {
     const mockUnsubscribe = jest.fn();
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: null },
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: null },
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: mockUnsubscribe } },
@@ -47,8 +47,8 @@ describe("AuthContext", () => {
     const mockUser = { id: "user-123", email: "test@example.com" };
     const mockUnsubscribe = jest.fn();
 
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: mockUser },
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: mockUser } },
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: mockUnsubscribe } },
@@ -65,14 +65,14 @@ describe("AuthContext", () => {
       expect(getByTestId("loading").props.children).toBe("not-loading");
     });
 
-    expect(supabase.auth.getUser).toHaveBeenCalled();
+    expect(supabase.auth.getSession).toHaveBeenCalled();
   });
 
   it("should handle no user on mount", async () => {
     const mockUnsubscribe = jest.fn();
 
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: null },
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: null },
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: mockUnsubscribe } },
@@ -94,8 +94,8 @@ describe("AuthContext", () => {
     const mockUnsubscribe = jest.fn();
     const mockCallback = jest.fn();
 
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: null },
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: null },
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
       (callback) => {
@@ -137,8 +137,8 @@ describe("AuthContext", () => {
     const mockUser = { id: "user-123", email: "test@example.com" };
     const mockUnsubscribe = jest.fn();
 
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: mockUser },
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: mockUser } },
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockReturnValue({
       data: { subscription: { unsubscribe: mockUnsubscribe } },
@@ -171,8 +171,8 @@ describe("AuthContext", () => {
     const mockUnsubscribe = jest.fn();
     const mockCallback = jest.fn();
 
-    (supabase.auth.getUser as jest.Mock).mockResolvedValue({
-      data: { user: mockUser },
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: mockUser } },
     });
     (supabase.auth.onAuthStateChange as jest.Mock).mockImplementation(
       (callback) => {

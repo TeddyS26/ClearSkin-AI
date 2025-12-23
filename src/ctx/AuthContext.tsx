@@ -9,12 +9,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => { setUser(data.user ?? null); setLoading(false); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    // First, try to restore the session from storage
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      // Only set loading false if it's still true (initial load)
+      setLoading(false);
+    });
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function signOut() { await supabase.auth.signOut(); }
+  async function signOut() { 
+    await supabase.auth.signOut(); 
+    setUser(null);
+  }
 
   return <AuthContext.Provider value={{ user, loading, signOut }}>{children}</AuthContext.Provider>;
 }

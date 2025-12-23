@@ -6,7 +6,7 @@ import { useAuth } from "../../src/ctx/AuthContext";
 import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings } from "lucide-react-native";
 import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
-import { hasActiveSubscription } from "../../src/lib/billing";
+import { hasActiveSubscription, canScan } from "../../src/lib/billing";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -64,6 +64,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [canStartScan, setCanStartScan] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -72,9 +73,11 @@ export default function Home() {
       setLatestScan(scans[0] || null);
       setPreviousScan(scans[1] || null);
       
-      // Check subscription status
+      // Check subscription status and scan ability
       const subStatus = await hasActiveSubscription();
       setHasSubscription(subStatus);
+      const scanAllowed = await canScan();
+      setCanStartScan(scanAllowed);
       setCheckingSubscription(false);
     } catch (error) {
       setCheckingSubscription(false);
@@ -291,12 +294,18 @@ export default function Home() {
                       {latestScan.skin_potential ?? "—"}%
                     </Text>
                   </View>
-                  <View className="flex-1 bg-gray-50 rounded-2xl p-4">
+                  {/* Skin Type - locked for free tier */}
+                  <View className="flex-1 bg-gray-50 rounded-2xl p-4 relative">
+                    {!hasSubscription && (
+                      <View className="absolute inset-0 bg-gray-100/90 rounded-2xl items-center justify-center z-10">
+                        <Lock size={16} color="#9CA3AF" />
+                      </View>
+                    )}
                     <Text className="text-gray-600 text-xs mb-1">
                       Skin Type
                     </Text>
                     <Text className="text-gray-900 text-xl font-bold capitalize">
-                      {latestScan.skin_type ?? "Normal"}
+                      {hasSubscription ? (latestScan.skin_type ?? "Normal") : "—"}
                     </Text>
                   </View>
                 </View>
@@ -323,31 +332,31 @@ export default function Home() {
             </View>
           ) : (
             <Pressable 
-              onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
+              onPress={() => canStartScan ? router.push("/scan/capture") : router.push("/subscribe")}
               className={`rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm ${
-                hasSubscription 
+                canStartScan 
                   ? "bg-emerald-500 active:opacity-90" 
                   : "bg-gray-300 active:opacity-90"
               }`}
-              android_ripple={{ color: hasSubscription ? "#059669" : "#D1D5DB" }}
+              android_ripple={{ color: canStartScan ? "#059669" : "#D1D5DB" }}
             >
               <View style={{ marginRight: 10 }}>
-                {hasSubscription ? (
+                {canStartScan ? (
                   <Camera size={22} color="white" strokeWidth={2} />
                 ) : (
                   <Lock size={22} color="#9CA3AF" strokeWidth={2} />
                 )}
               </View>
               <Text className={`text-base font-semibold ${
-                hasSubscription ? "text-white" : "text-gray-500"
+                canStartScan ? "text-white" : "text-gray-500"
               }`}>
-                {hasSubscription ? "Take a New Scan" : "Subscribe to Scan"}
+                {canStartScan ? (hasSubscription ? "Take a New Scan" : "Start Free Scan") : "Subscribe to Scan"}
               </Text>
             </Pressable>
           )}
 
-          {/* Quick Insights */}
-          {latestScan && (
+          {/* Quick Insights - Only show for subscribers */}
+          {latestScan && hasSubscription && (
             <View>
               <Text className="text-gray-900 text-lg font-bold mb-4">
                 Quick Insights
