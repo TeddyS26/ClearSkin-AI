@@ -6,12 +6,6 @@
     "web": {
       "bundler": "metro"
     },
-    "linking": {
-      "scheme": "clearskinai",
-      "prefixes": [
-        "clearskinai://"
-      ]
-    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -46,7 +40,15 @@
           "color": "#10B981",
           "sounds": []
         }
-      ]
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.clearskin.ai",
+          "enableGooglePay": true
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
