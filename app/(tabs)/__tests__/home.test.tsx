@@ -1,10 +1,10 @@
 import React from "react";
-import { render, waitFor, fireEvent } from "@testing-library/react-native";
+import { render, waitFor, fireEvent, act } from "@testing-library/react-native";
 import Home from "../home";
 import { useAuth } from "../../../src/ctx/AuthContext";
 import { getRecentCompletedScans } from "../../../src/lib/scan";
 import { hasActiveSubscription } from "../../../src/lib/billing";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
 jest.mock("../../../src/ctx/AuthContext");
@@ -14,9 +14,14 @@ jest.mock("../../../src/lib/billing", () => ({
   getSubscriptionStatus: jest.fn(),
   openBillingPortal: jest.fn(),
   canScan: jest.fn(),
+  getDaysUntilFreeReset: jest.fn(),
 }));
-import { canScan } from "../../../src/lib/billing";
-jest.mock("expo-router");
+import { canScan, getDaysUntilFreeReset } from "../../../src/lib/billing";
+jest.mock("expo-router", () => ({
+  useRouter: jest.fn(),
+  useFocusEffect: jest.fn(),
+  Link: ({ children }: any) => children,
+}));
 jest.mock("lucide-react-native", () => ({
   Camera: "Camera",
   TrendingUp: "TrendingUp",
@@ -27,6 +32,7 @@ jest.mock("lucide-react-native", () => ({
   Crown: "Crown",
   Lock: "Lock",
   Settings: "Settings",
+  Calendar: "Calendar",
 }));
 jest.mock("react-native-svg", () => ({
   __esModule: true,
@@ -48,6 +54,7 @@ describe("Home", () => {
     });
     (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
     (canScan as jest.Mock).mockResolvedValue(false);
+    (getDaysUntilFreeReset as jest.Mock).mockResolvedValue(null);
     (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
   });
 
@@ -101,10 +108,11 @@ describe("Home", () => {
 
     (getRecentCompletedScans as jest.Mock).mockResolvedValue([mockScan]);
 
-    const { getByText } = render(<Home />);
+    const { getAllByText } = render(<Home />);
 
     await waitFor(() => {
-      expect(getByText(/day/)).toBeTruthy();
+      const elements = getAllByText(/day/);
+      expect(elements.length).toBeGreaterThan(0);
     });
   });
 

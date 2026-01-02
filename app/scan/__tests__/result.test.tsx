@@ -440,5 +440,28 @@ describe("Result", () => {
       expect(getByText("Gentle formula")).toBeTruthy();
     });
   });
-});
 
+  describe("Skin Age Feature", () => {
+    it("should handle missing skin age gracefully", async () => {
+      const mockScan = {
+        id: "scan-123",
+        skin_score: 85,
+        skin_type: "normal",
+        front_path: "path/front.jpg",
+        skin_age: null,
+        actual_age: null,
+        skin_age_comparison: null,
+      };
+
+      (getScan as jest.Mock).mockResolvedValue(mockScan);
+
+      const { getByText, queryByText } = render(<Result />);
+
+      await waitFor(() => {
+        expect(getByText("Your Results")).toBeTruthy();
+        // Skin Age section should not show when no skin_age
+        expect(queryByText("Skin Age")).toBeNull();
+      });
+    });
+  });
+});

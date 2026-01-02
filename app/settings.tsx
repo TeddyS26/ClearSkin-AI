@@ -628,6 +628,7 @@ export default function Settings() {
         >
         <View className="px-5 pt-6 pb-4">
           <Pressable
+            testID="back-button"
             onPress={() => router.back()}
             className="flex-row items-center mb-4 active:opacity-60"
             android_ripple={{ color: "#9CA3AF20" }}

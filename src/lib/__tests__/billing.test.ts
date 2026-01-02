@@ -13,6 +13,9 @@ import {
   markFreeScanUsed,
   isFreeScan,
   canScan,
+  hasUsedMonthlyFreeScan,
+  markMonthlyFreeScanUsed,
+  getDaysUntilFreeReset,
 } from "../billing";
 
 jest.mock("expo-web-browser");
@@ -390,18 +393,28 @@ describe('billing.ts', () => {
     });
   });
 
-  describe('hasUsedFreeScan', () => {
-    it('should return true when free scan has been used', async () => {
+  describe('hasUsedFreeScan (legacy wrapper)', () => {
+    it('should return true when free scan was used within 30 days', async () => {
       const mockUser = { id: 'user-123' };
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
       });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('true');
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { free_scan_used_at: tenDaysAgo.toISOString() }
+            })
+          })
+        })
+      });
 
       const result = await hasUsedFreeScan();
 
       expect(result).toBe(true);
-      expect(AsyncStorage.getItem).toHaveBeenCalledWith('@clearskin_free_scan_used_user-123');
     });
 
     it('should return false when free scan has not been used', async () => {
@@ -409,7 +422,15 @@ describe('billing.ts', () => {
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
       });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: null
+            })
+          })
+        })
+      });
 
       const result = await hasUsedFreeScan();
 
@@ -424,20 +445,33 @@ describe('billing.ts', () => {
       const result = await hasUsedFreeScan();
 
       expect(result).toBe(true);
-      expect(AsyncStorage.getItem).not.toHaveBeenCalled();
     });
   });
 
-  describe('markFreeScanUsed', () => {
-    it('should mark free scan as used for authenticated user', async () => {
+  describe('markFreeScanUsed (legacy wrapper)', () => {
+    it('should mark free scan as used for authenticated user with existing profile', async () => {
       const mockUser = { id: 'user-456' };
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ error: null })
+      });
+
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { user_id: 'user-456' }
+            })
+          })
+        }),
+        update: mockUpdate
       });
 
       await markFreeScanUsed();
 
-      expect(AsyncStorage.setItem).toHaveBeenCalledWith('@clearskin_free_scan_used_user-456', 'true');
+      expect(supabase.from).toHaveBeenCalledWith('user_profiles');
     });
 
     it('should not mark free scan when no user is authenticated', async () => {
@@ -447,7 +481,7 @@ describe('billing.ts', () => {
 
       await markFreeScanUsed();
 
-      expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+      expect(supabase.from).not.toHaveBeenCalled();
     });
   });
 
@@ -464,6 +498,9 @@ describe('billing.ts', () => {
               maybeSingle: jest.fn().mockResolvedValue({
                 data: { id: 'sub-123', status: 'active' }
               })
+            }),
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: null
             })
           })
         })
@@ -479,41 +516,85 @@ describe('billing.ts', () => {
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
       });
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: null
+      
+      // Mock for hasActiveSubscription (returns null = no subscription)
+      // Mock for hasUsedMonthlyFreeScan (returns null = never used)
+      let callCount = 0;
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'subscriptions') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                })
               })
             })
+          };
+        }
+        if (table === 'user_profiles') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: null })
+              })
+            })
+          };
+        }
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({ data: null })
+            })
           })
-        })
+        };
       });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
       const result = await isFreeScan();
 
       expect(result).toBe(true);
     });
 
-    it('should return false when user has no subscription but has used free scan', async () => {
+    it('should return false when user has no subscription but has used free scan within 30 days', async () => {
       const mockUser = { id: 'user-123' };
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
       });
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: null
+      
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'subscriptions') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                })
               })
             })
+          };
+        }
+        if (table === 'user_profiles') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ 
+                  data: { free_scan_used_at: tenDaysAgo.toISOString() } 
+                })
+              })
+            })
+          };
+        }
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({ data: null })
+            })
           })
-        })
+        };
       });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('true');
 
       const result = await isFreeScan();
 
@@ -549,25 +630,101 @@ describe('billing.ts', () => {
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
       });
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: null
+      
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'subscriptions') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                })
               })
             })
+          };
+        }
+        if (table === 'user_profiles') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ data: null })
+              })
+            })
+          };
+        }
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({ data: null })
+            })
           })
-        })
+        };
       });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
 
       const result = await canScan();
 
       expect(result).toBe(true);
     });
 
-    it('should return false when user has no subscription and has used free scan', async () => {
+    it('should return false when user has no subscription and has used free scan within 30 days', async () => {
+      const mockUser = { id: 'user-123' };
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      
+      (supabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'subscriptions') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                })
+              })
+            })
+          };
+        }
+        if (table === 'user_profiles') {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({ 
+                  data: { free_scan_used_at: tenDaysAgo.toISOString() } 
+                })
+              })
+            })
+          };
+        }
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({ data: null })
+            })
+          })
+        };
+      });
+
+      const result = await canScan();
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('hasUsedMonthlyFreeScan (30-day cooldown)', () => {
+    it('should return false when no user is authenticated', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null }
+      });
+
+      const result = await hasUsedMonthlyFreeScan();
+
+      expect(result).toBe(true); // Returns true = can't scan
+    });
+
+    it('should return false when profile has no free_scan_used_at', async () => {
       const mockUser = { id: 'user-123' };
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
@@ -575,19 +732,258 @@ describe('billing.ts', () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: null
-              })
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: null
             })
           })
         })
       });
-      (AsyncStorage.getItem as jest.Mock).mockResolvedValue('true');
 
-      const result = await canScan();
+      const result = await hasUsedMonthlyFreeScan();
 
-      expect(result).toBe(false);
+      expect(result).toBe(false); // Never used = can scan
+    });
+
+    it('should return true when free scan was used within 30 days', async () => {
+      const mockUser = { id: 'user-123' };
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { free_scan_used_at: tenDaysAgo.toISOString() }
+            })
+          })
+        })
+      });
+
+      const result = await hasUsedMonthlyFreeScan();
+
+      expect(result).toBe(true); // Within cooldown = can't scan
+    });
+
+    it('should return false when free scan was used more than 30 days ago', async () => {
+      const mockUser = { id: 'user-123' };
+      const fortyDaysAgo = new Date();
+      fortyDaysAgo.setDate(fortyDaysAgo.getDate() - 40);
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { free_scan_used_at: fortyDaysAgo.toISOString() }
+            })
+          })
+        })
+      });
+
+      const result = await hasUsedMonthlyFreeScan();
+
+      expect(result).toBe(false); // Cooldown expired = can scan
+    });
+
+    it('should return false on database error (fail open)', async () => {
+      const mockUser = { id: 'user-123' };
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockRejectedValue(new Error('DB error'))
+          })
+        })
+      });
+
+      const result = await hasUsedMonthlyFreeScan();
+
+      expect(result).toBe(false); // Fail open = allow scan
+    });
+  });
+
+  describe('markMonthlyFreeScanUsed', () => {
+    it('should not update when no user is authenticated', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null }
+      });
+
+      await markMonthlyFreeScanUsed();
+
+      expect(supabase.from).not.toHaveBeenCalled();
+    });
+
+    it('should update existing profile with free_scan_used_at', async () => {
+      const mockUser = { id: 'user-123' };
+      const mockUpdate = jest.fn().mockReturnValue({
+        eq: jest.fn().mockResolvedValue({ error: null })
+      });
+      
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { user_id: 'user-123' }
+            })
+          })
+        }),
+        update: mockUpdate
+      });
+
+      await markMonthlyFreeScanUsed();
+
+      expect(supabase.from).toHaveBeenCalledWith('user_profiles');
+    });
+
+    it('should insert new profile when none exists', async () => {
+      const mockUser = { id: 'user-456' };
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: null
+            })
+          })
+        }),
+        insert: mockInsert
+      });
+
+      await markMonthlyFreeScanUsed();
+
+      expect(supabase.from).toHaveBeenCalledWith('user_profiles');
+    });
+  });
+
+  describe('getDaysUntilFreeReset', () => {
+    it('should return null when no user is authenticated', async () => {
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: null }
+      });
+
+      const result = await getDaysUntilFreeReset();
+
+      expect(result).toBe(null);
+    });
+
+    it('should return 0 when no profile exists (never used)', async () => {
+      const mockUser = { id: 'user-123' };
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: null
+            })
+          })
+        })
+      });
+
+      const result = await getDaysUntilFreeReset();
+
+      expect(result).toBe(0); // Available now
+    });
+
+    it('should return 0 when free_scan_used_at is null', async () => {
+      const mockUser = { id: 'user-123' };
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { free_scan_used_at: null }
+            })
+          })
+        })
+      });
+
+      const result = await getDaysUntilFreeReset();
+
+      expect(result).toBe(0);
+    });
+
+    it('should return remaining days when within cooldown', async () => {
+      const mockUser = { id: 'user-123' };
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { free_scan_used_at: tenDaysAgo.toISOString() }
+            })
+          })
+        })
+      });
+
+      const result = await getDaysUntilFreeReset();
+
+      // Should be approximately 20 days remaining (30 - 10)
+      expect(result).toBeGreaterThanOrEqual(19);
+      expect(result).toBeLessThanOrEqual(21);
+    });
+
+    it('should return 0 when cooldown has expired', async () => {
+      const mockUser = { id: 'user-123' };
+      const thirtyFiveDaysAgo = new Date();
+      thirtyFiveDaysAgo.setDate(thirtyFiveDaysAgo.getDate() - 35);
+
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { free_scan_used_at: thirtyFiveDaysAgo.toISOString() }
+            })
+          })
+        })
+      });
+
+      const result = await getDaysUntilFreeReset();
+
+      expect(result).toBe(0); // Cooldown expired
+    });
+
+    it('should return null on database error', async () => {
+      const mockUser = { id: 'user-123' };
+      (supabase.auth.getUser as jest.Mock).mockResolvedValue({
+        data: { user: mockUser }
+      });
+      (supabase.from as jest.Mock).mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            maybeSingle: jest.fn().mockRejectedValue(new Error('DB error'))
+          })
+        })
+      });
+
+      const result = await getDaysUntilFreeReset();
+
+      expect(result).toBe(null);
     });
   });
 });
