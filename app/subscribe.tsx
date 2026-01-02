@@ -226,6 +226,13 @@ export default function Subscribe() {
                 <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
                   <Check size={16} color="#10B981" strokeWidth={3} />
                 </View>
+                <Text className="text-base text-gray-700 flex-1">Skin age estimation & comparison</Text>
+              </View>
+
+              <View className="flex-row items-center">
+                <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                  <Check size={16} color="#10B981" strokeWidth={3} />
+                </View>
                 <Text className="text-base text-gray-700 flex-1">Cancel anytime</Text>
               </View>
             </View>
@@ -249,10 +256,24 @@ export default function Subscribe() {
                 <Info size={24} color="#6B7280" strokeWidth={2} />
               </View>
               <Text className="text-2xl font-bold text-gray-700 mb-1">Free Tier</Text>
-              <Text className="text-base text-gray-600">What you get without subscribing</Text>
+              <Text className="text-base text-gray-600 text-center">Try ClearSkin AI for free — no credit card required</Text>
             </View>
 
             <View className="gap-4 mb-4">
+              <View className="flex-row items-center">
+                <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                  <Check size={16} color="#10B981" strokeWidth={3} />
+                </View>
+                <Text className="text-base text-gray-700 flex-1">1 free limited scan per month</Text>
+              </View>
+
+              <View className="flex-row items-center">
+                <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
+                  <Check size={16} color="#10B981" strokeWidth={3} />
+                </View>
+                <Text className="text-base text-gray-700 flex-1">Limited preview of your results</Text>
+              </View>
+
               <View className="flex-row items-center">
                 <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
                   <Check size={16} color="#10B981" strokeWidth={3} />
@@ -268,31 +289,38 @@ export default function Subscribe() {
               </View>
 
               <View className="flex-row items-center">
-                <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
-                  <Check size={16} color="#10B981" strokeWidth={3} />
+                <View className="w-6 h-6 bg-red-100 rounded-full items-center justify-center mr-3">
+                  <X size={16} color="#EF4444" strokeWidth={3} />
                 </View>
-                <Text className="text-base text-gray-700 flex-1">Access previous scan results</Text>
+                <Text className="text-base text-gray-500 flex-1 line-through">Unlimited scans</Text>
               </View>
 
               <View className="flex-row items-center">
                 <View className="w-6 h-6 bg-red-100 rounded-full items-center justify-center mr-3">
                   <X size={16} color="#EF4444" strokeWidth={3} />
                 </View>
-                <Text className="text-base text-gray-500 flex-1 line-through">Perform new skin scans</Text>
+                <Text className="text-base text-gray-500 flex-1 line-through">Full AI-powered analysis</Text>
               </View>
 
               <View className="flex-row items-center">
                 <View className="w-6 h-6 bg-red-100 rounded-full items-center justify-center mr-3">
                   <X size={16} color="#EF4444" strokeWidth={3} />
                 </View>
-                <Text className="text-base text-gray-500 flex-1 line-through">Get AI-powered analysis</Text>
+                <Text className="text-base text-gray-500 flex-1 line-through">Personalized skincare routines</Text>
               </View>
 
               <View className="flex-row items-center">
                 <View className="w-6 h-6 bg-red-100 rounded-full items-center justify-center mr-3">
                   <X size={16} color="#EF4444" strokeWidth={3} />
                 </View>
-                <Text className="text-base text-gray-500 flex-1 line-through">Receive personalized skincare routines</Text>
+                <Text className="text-base text-gray-500 flex-1 line-through">Product recommendations</Text>
+              </View>
+
+              <View className="flex-row items-center">
+                <View className="w-6 h-6 bg-red-100 rounded-full items-center justify-center mr-3">
+                  <X size={16} color="#EF4444" strokeWidth={3} />
+                </View>
+                <Text className="text-base text-gray-500 flex-1 line-through">Skin age estimation</Text>
               </View>
             </View>
           </View>

@@ -6,7 +6,7 @@ import { latestCompletedScan, signStoragePaths } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/ctx/AuthContext";
 import { canScan, hasActiveSubscription } from "../../src/lib/billing";
-import { Camera, TrendingUp, Heart, Droplet, AlertCircle, FileText, Lock, Crown } from "lucide-react-native";
+import { Camera, TrendingUp, Heart, Droplet, AlertCircle, FileText, Lock, Crown, Clock } from "lucide-react-native";
 
 export default function Latest() {
   const [row, setRow] = useState<any>(null);
@@ -172,6 +172,51 @@ export default function Latest() {
             </View>
           </View>
         </View>
+
+        {/* Skin Age Card - New Feature */}
+        {row.skin_age && (
+          <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100 relative">
+            {!hasSubscription && (
+              <View className="absolute inset-0 bg-white/90 rounded-3xl items-center justify-center z-10">
+                <Lock size={28} color="#9CA3AF" />
+                <Text className="text-gray-500 font-semibold mt-2">Subscribe to unlock</Text>
+              </View>
+            )}
+            <View className="flex-row items-center mb-4">
+              <View style={{ marginRight: 8 }}>
+                <Clock size={24} color="#10B981" strokeWidth={2} />
+              </View>
+              <Text className="text-xl font-bold text-gray-900">Skin Age</Text>
+            </View>
+            
+            <View className="items-center py-2">
+              <View className="bg-emerald-50 rounded-full w-24 h-24 items-center justify-center mb-3">
+                <Text className="text-3xl font-bold text-emerald-600">{hasSubscription ? row.skin_age : "?"}</Text>
+                <Text className="text-xs text-emerald-700">years</Text>
+              </View>
+              
+              {hasSubscription && row.skin_age_comparison && (
+                <View className={`px-3 py-1.5 rounded-full ${
+                  row.skin_age_comparison.includes('younger') 
+                    ? 'bg-emerald-100' 
+                    : row.skin_age_comparison.includes('older')
+                    ? 'bg-amber-100'
+                    : 'bg-gray-100'
+                }`}>
+                  <Text className={`text-xs font-medium ${
+                    row.skin_age_comparison.includes('younger')
+                      ? 'text-emerald-700'
+                      : row.skin_age_comparison.includes('older')
+                      ? 'text-amber-700'
+                      : 'text-gray-700'
+                  }`}>
+                    {row.skin_age_comparison}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Conditions Card - locked for free tier */}
         {hasSubscription ? (

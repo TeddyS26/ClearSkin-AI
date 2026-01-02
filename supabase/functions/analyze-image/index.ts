@@ -309,8 +309,60 @@ Deno.serve(async (req)=>{
       }, 400);
     }
     console.log("Face detection validation passed for all three photos. Proceeding with analysis...");
+    
+    // --- 4.6) Fetch user profile for personalized analysis
+    let userProfile = null;
+    let userAge = null;
+    let userGender = null;
+    try {
+      const { data: profile } = await sb
+        .from("user_profiles")
+        .select("age, gender, date_of_birth")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (profile) {
+        userProfile = profile;
+        userGender = profile.gender;
+        // Calculate age from date_of_birth if available, otherwise use stored age
+        if (profile.date_of_birth) {
+          const dob = new Date(profile.date_of_birth);
+          const today = new Date();
+          userAge = today.getFullYear() - dob.getFullYear();
+          const monthDiff = today.getMonth() - dob.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            userAge--;
+          }
+        } else if (profile.age) {
+          userAge = profile.age;
+        }
+        console.log(`User profile loaded: age=${userAge}, gender=${userGender}`);
+      }
+    } catch (profileError) {
+      console.warn("Could not fetch user profile:", profileError);
+    }
+    
+    // Build demographic context string for AI
+    const demographicContext = userAge || userGender 
+      ? `\nUSER DEMOGRAPHICS:
+${userAge ? `- Actual Age: ${userAge} years old` : "- Age: Not provided"}
+${userGender ? `- Gender: ${userGender}` : "- Gender: Not provided"}
+
+IMPORTANT DEMOGRAPHIC CONSIDERATIONS:
+${userGender === 'male' ? `- Male skin is typically ~25% thicker with more collagen
+- Higher sebum production - may need oil-control products
+- Shaving-related concerns (razor burn, ingrown hairs) are common
+- Products should be suitable for male skin characteristics` : ''}
+${userGender === 'female' ? `- Consider hormonal influences on skin (cycle-related breakouts)
+- May have different product preferences
+- Skin may be more responsive to certain active ingredients` : ''}
+${userAge ? `- Factor in age-appropriate recommendations
+- Compare estimated skin age to actual age (${userAge})
+- Consider preventive vs corrective approaches based on age` : ''}` 
+      : '';
+
     // --- 5) Build OpenAI request (strict JSON)
-    const system = `You are an expert dermatological AI assistant that analyzes facial skin from 3 photos: front view, left profile, and right profile.
+    const system = `You are an expert dermatological AI assistant that analyzes facial skin from 3 photos: front view, left profile, and right profile.${demographicContext}
 
 CRITICAL INSTRUCTIONS:
 1. You MUST analyze ALL THREE photos comprehensively. Use information from all angles to calculate scores and identify issues.
@@ -333,6 +385,10 @@ Return a strict JSON object with the following structure:
   "skin_potential": int 0-100 (GRANULAR - not multiples of 5, e.g., 78, 86, 92),
   "skin_health_percent": int 0-100 (GRANULAR - not multiples of 5),
   "skin_type": "oily"|"dry"|"combination"|"normal"|"unknown",
+  
+  "skin_age": int (estimated biological age of the skin based on visual analysis - consider fine lines, wrinkles, skin elasticity appearance, sun damage, texture, pore size, collagen appearance. Be precise, e.g., 24, 31, 45${userAge ? `. Compare to user's actual age of ${userAge}` : ''}),
+  "skin_age_comparison": string (${userAge ? `comparison to actual age ${userAge}, e.g., "3 years younger than your actual age" or "5 years older than your actual age" or "matches your actual age"` : 'general assessment like "appears youthful" or "shows signs of premature aging"'}),
+  "skin_age_confidence": int 0-100 (confidence in the skin age estimate based on photo clarity and visible aging indicators),
 
   "breakout_level": "none"|"minimal"|"moderate"|"high"|"unknown",
   "acne_prone_level": "none"|"minimal"|"moderate"|"high"|"unknown",
@@ -347,7 +403,7 @@ Return a strict JSON object with the following structure:
   "pore_health": int 0-100 (GRANULAR),
 
   "summary": { 
-    "notes": string (detailed 3-5 sentence analysis mentioning specific findings from all 3 photos - front, left, and right views${validatedContext ? ", and incorporating the user's provided context" : ""})
+    "notes": string (detailed 3-5 sentence analysis mentioning specific findings from all 3 photos - front, left, and right views${validatedContext ? ", and incorporating the user's provided context" : ""}${userAge ? `, and how the skin age compares to the user's actual age of ${userAge}` : ""})
   },
   
   "issues": [ 
@@ -977,6 +1033,9 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       skin_potential: parsed.skin_potential ?? null,
       skin_health_percent: parsed.skin_health_percent ?? null,
       skin_type: parsed.skin_type ?? "unknown",
+      skin_age: parsed.skin_age ?? null,
+      skin_age_comparison: parsed.skin_age_comparison ?? null,
+      skin_age_confidence: parsed.skin_age_confidence ?? null,
       breakout_level: parsed.breakout_level ?? "unknown",
       acne_prone_level: parsed.acne_prone_level ?? "unknown",
       scarring_level: parsed.scarring_level ?? "unknown",

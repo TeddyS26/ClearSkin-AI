@@ -54,9 +54,16 @@ function CenterScanButton() {
 }
 
 export default function TabsLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, profileComplete } = useAuth();
+  
   if (loading) return null;
   if (!user) return <Redirect href="/auth/sign-in" />;
+  
+  // If profile check is still loading (null), show nothing
+  if (profileComplete === null) return null;
+  
+  // If profile is not complete, redirect to profile setup
+  if (!profileComplete) return <Redirect href="/auth/profile-setup" />;
 
   return (
     <Tabs 

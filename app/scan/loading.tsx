@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanComplete, isValidScan, deleteScan, getScan } from "../../src/lib/scan";
 import { requestNotificationPermissions, notifyScanComplete, scheduleScanReminder } from "../../src/lib/notifications";
-import { hasActiveSubscription } from "../../src/lib/billing";
+import { hasActiveSubscription, markMonthlyFreeScanUsed } from "../../src/lib/billing";
 import { Sparkles, Upload, Brain, CheckCircle, Camera, BellRing } from "lucide-react-native";
 
 export default function Loading() {
@@ -43,6 +43,10 @@ export default function Loading() {
             if (row.status === "complete") {
               processingComplete.current = true;
               if (isValidScan(row)) {
+                // Mark free scan as used if this is a free tier user
+                if (isFreeTierRef.current) {
+                  await markMonthlyFreeScanUsed();
+                }
                 router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current, isFreeTier: String(isFreeTierRef.current) } });
               } else {
                 try {
@@ -106,6 +110,7 @@ export default function Loading() {
         // Check if user is on free tier (no subscription)
         const hasSubscription = await hasActiveSubscription();
         isFreeTierRef.current = !hasSubscription;
+        console.log("Scan loading - hasSubscription:", hasSubscription, "isFreeTier:", isFreeTierRef.current);
         
         setMsg("Creating session…");
         const { scanId, userId } = await createScanSession();
@@ -127,6 +132,13 @@ export default function Loading() {
         if (row.status === "complete") {
           // Check if the scan has valid face detection
           if (isValidScan(row)) {
+            // Mark free scan as used if this is a free tier user
+            console.log("Scan complete - isFreeTier:", isFreeTierRef.current);
+            if (isFreeTierRef.current) {
+              console.log("Marking free scan as used...");
+              await markMonthlyFreeScanUsed();
+              console.log("Free scan marked as used");
+            }
             // Schedule bi-weekly reminder for next scan
             await scheduleScanReminder();
             // Send notification if app is in background

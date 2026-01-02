@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings } from "lucide-react-native";
+import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings, Calendar } from "lucide-react-native";
 import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
-import { hasActiveSubscription, canScan } from "../../src/lib/billing";
+import { hasActiveSubscription, canScan, getDaysUntilFreeReset } from "../../src/lib/billing";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -66,6 +66,7 @@ export default function Home() {
   const [hasSubscription, setHasSubscription] = useState(false);
   const [canStartScan, setCanStartScan] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
+  const [daysUntilFreeReset, setDaysUntilFreeReset] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -78,6 +79,13 @@ export default function Home() {
       setHasSubscription(subStatus);
       const scanAllowed = await canScan();
       setCanStartScan(scanAllowed);
+      
+      // Get days until free scan resets (only for non-subscribers)
+      if (!subStatus) {
+        const days = await getDaysUntilFreeReset();
+        setDaysUntilFreeReset(days);
+      }
+      
       setCheckingSubscription(false);
     } catch (error) {
       setCheckingSubscription(false);
@@ -94,11 +102,20 @@ export default function Home() {
     })();
   }, [fetchData]);
 
+  // Refresh data when home tab is focused (e.g., after completing a scan)
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh data every time the screen comes into focus
+      fetchData();
+    }, [fetchData])
+  );
+
   // Set up real-time subscription for automatic updates
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
+    // Listen to scan_sessions changes
+    const scanChannel = supabase
       .channel('scan_sessions_changes')
       .on(
         'postgres_changes',
@@ -115,8 +132,27 @@ export default function Home() {
       )
       .subscribe();
 
+    // Listen to user_profiles changes (for free scan status updates)
+    const profileChannel = supabase
+      .channel('user_profiles_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_profiles',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // When profile is updated (e.g., free scan used), refresh the data
+          fetchData();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(scanChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, [user, fetchData]);
 
@@ -181,7 +217,7 @@ export default function Home() {
           {!checkingSubscription && !hasSubscription && (
             <Pressable
               onPress={() => router.push("/subscribe")}
-              className="bg-gradient-to-r bg-emerald-500 rounded-2xl p-4 mb-6 shadow-sm active:opacity-90"
+              className="bg-gradient-to-r bg-emerald-500 rounded-2xl p-4 mb-4 shadow-sm active:opacity-90"
               android_ripple={{ color: "#059669" }}
             >
               <View className="flex-row items-center">
@@ -201,6 +237,55 @@ export default function Home() {
                 </View>
               </View>
             </Pressable>
+          )}
+
+          {/* Monthly Free Scan Status Banner */}
+          {!checkingSubscription && !hasSubscription && (
+            <View className={`rounded-2xl p-4 mb-6 border ${
+              canStartScan 
+                ? "bg-emerald-50 border-emerald-200" 
+                : "bg-gray-100 border-gray-200"
+            }`}>
+              <View className="flex-row items-center">
+                <View className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
+                  canStartScan ? "bg-emerald-100" : "bg-gray-200"
+                }`}>
+                  {canStartScan ? (
+                    <Camera size={22} color="#10B981" strokeWidth={2} />
+                  ) : (
+                    <Calendar size={22} color="#6B7280" strokeWidth={2} />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className={`font-bold text-base ${
+                    canStartScan ? "text-emerald-700" : "text-gray-700"
+                  }`}>
+                    {canStartScan 
+                      ? "Free Scan Available!" 
+                      : "Free Scan Cooling Down"}
+                  </Text>
+                  <Text className={`text-sm ${
+                    canStartScan ? "text-emerald-600" : "text-gray-500"
+                  }`}>
+                    {canStartScan 
+                      ? "You have 1 free limited scan ready" 
+                      : daysUntilFreeReset === 1
+                        ? "Next free scan in 1 day"
+                        : `Next free scan in ${daysUntilFreeReset} days`}
+                  </Text>
+                </View>
+                {canStartScan ? (
+                  <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
+                    <Text className="text-white text-xs font-bold">READY</Text>
+                  </View>
+                ) : (
+                  <View className="items-center">
+                    <Text className="text-gray-900 text-2xl font-bold">{daysUntilFreeReset}</Text>
+                    <Text className="text-gray-500 text-xs">days left</Text>
+                  </View>
+                )}
+              </View>
+            </View>
           )}
 
           {/* Header */}
