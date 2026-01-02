@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: December 20, 2025
+          Last Updated: January 1, 2026
         </Text>
 
         <Section title="1. Introduction">
@@ -52,17 +52,33 @@ export default function PrivacyPolicy() {
             <BulletPoint>Full name (optional, if provided)</BulletPoint>
           </Subsection>
 
-          <Subsection title="2.2 Skin Analysis Data">
+          <Subsection title="2.2 Demographic Information">
+            <Paragraph>
+              To provide personalized skin analysis and accurate skin age estimation, we collect:
+            </Paragraph>
+            <BulletPoint>Date of birth (used to calculate your age)</BulletPoint>
+            <BulletPoint>Gender (male, female, other, or prefer not to say)</BulletPoint>
+            <Paragraph>
+              This information is required for new users during account setup and is used to personalize your AI skin analysis. 
+              Once provided, this demographic information cannot be changed to ensure consistent analysis results. 
+              We use this data solely to improve the accuracy of your skin age estimation and to provide gender-appropriate 
+              skincare recommendations, as male and female skin have different characteristics.
+            </Paragraph>
+          </Subsection>
+
+          <Subsection title="2.3 Skin Analysis Data">
             <Paragraph>
               When you use our skin analysis features, we collect:
             </Paragraph>
             <BulletPoint>Photographs of your skin taken through the App</BulletPoint>
             <BulletPoint>Analysis results and recommendations</BulletPoint>
             <BulletPoint>Skin condition assessments</BulletPoint>
+            <BulletPoint>Estimated skin age and skin age comparison to your actual age</BulletPoint>
             <BulletPoint>Historical scan data and progress tracking</BulletPoint>
+            <BulletPoint>Free scan usage tracking (date of last free scan)</BulletPoint>
           </Subsection>
 
-          <Subsection title="2.3 Payment Information">
+          <Subsection title="2.4 Payment Information">
             <Paragraph>
               When you subscribe to premium features, payment processing is handled by Stripe. We do not store your full credit card details. 
               Stripe collects and processes:
@@ -72,7 +88,7 @@ export default function PrivacyPolicy() {
             <BulletPoint>Transaction history</BulletPoint>
           </Subsection>
 
-          <Subsection title="2.4 Contact and Communication Data">
+          <Subsection title="2.5 Contact and Communication Data">
             <Paragraph>
               When you contact us through the App's contact form, we collect:
             </Paragraph>
@@ -82,7 +98,7 @@ export default function PrivacyPolicy() {
             <BulletPoint>Timestamp of your communication</BulletPoint>
           </Subsection>
 
-          <Subsection title="2.5 Automatically Collected Information">
+          <Subsection title="2.6 Automatically Collected Information">
             <Paragraph>
               When you use the App, we may automatically collect:
             </Paragraph>
@@ -92,7 +108,7 @@ export default function PrivacyPolicy() {
             <BulletPoint>Error logs and crash reports</BulletPoint>
           </Subsection>
 
-          <Subsection title="2.6 Push Notification Data">
+          <Subsection title="2.7 Push Notification Data">
             <Paragraph>
               If you enable push notifications, we collect:
             </Paragraph>
@@ -112,7 +128,10 @@ export default function PrivacyPolicy() {
           </Paragraph>
           <BulletPoint>Provide and maintain the App's skin analysis features</BulletPoint>
           <BulletPoint>Process your AI-powered skin assessments using OpenAI's API</BulletPoint>
+          <BulletPoint>Estimate your skin age and compare it to your actual age</BulletPoint>
+          <BulletPoint>Provide gender-appropriate skincare analysis and recommendations</BulletPoint>
           <BulletPoint>Track your skin health progress over time</BulletPoint>
+          <BulletPoint>Manage your monthly free scan allowance (one free scan every 30 days for non-subscribers)</BulletPoint>
           <BulletPoint>Process subscription payments and manage your account</BulletPoint>
           <BulletPoint>Send you important updates about your account or the App</BulletPoint>
           <BulletPoint>Send push notifications when your scan analysis is complete</BulletPoint>

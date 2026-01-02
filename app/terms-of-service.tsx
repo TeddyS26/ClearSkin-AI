@@ -23,7 +23,7 @@ export default function TermsOfService() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: December 20, 2025
+          Last Updated: January 1, 2026
         </Text>
 
         <Section title="1. Acceptance of Terms">
@@ -54,7 +54,8 @@ export default function TermsOfService() {
           </Paragraph>
           <BulletPoint>Analyze photographs of your skin</BulletPoint>
           <BulletPoint>Identify potential skin conditions and concerns</BulletPoint>
-          <BulletPoint>Provide personalized skincare recommendations</BulletPoint>
+          <BulletPoint>Estimate your skin age and compare it to your actual age</BulletPoint>
+          <BulletPoint>Provide personalized skincare recommendations based on your age and gender</BulletPoint>
           <BulletPoint>Track your skin health progress over time</BulletPoint>
           <BulletPoint>Suggest skincare routines and products</BulletPoint>
           <BulletPoint>Send push notifications when scan analysis is complete</BulletPoint>
@@ -116,7 +117,13 @@ export default function TermsOfService() {
             </Paragraph>
             <BulletPoint>A valid email address</BulletPoint>
             <BulletPoint>A secure password</BulletPoint>
-            <BulletPoint>Optional profile information</BulletPoint>
+            <BulletPoint>Your date of birth (required for new accounts)</BulletPoint>
+            <BulletPoint>Your gender (required for new accounts)</BulletPoint>
+            <Paragraph>
+              New users are required to provide their date of birth and gender during account setup. This demographic 
+              information is used to personalize your skin analysis, including skin age estimation and gender-appropriate 
+              recommendations. Once provided, this information cannot be changed to ensure consistent and accurate analysis results.
+            </Paragraph>
           </Subsection>
 
           <Subsection title="5.2 Account Security">
@@ -141,13 +148,28 @@ export default function TermsOfService() {
         <Section title="6. Subscriptions and Payments">
           <Subsection title="6.1 Free and Premium Features">
             <Paragraph>
-              The App offers both free and premium subscription features. Premium features include:
+              The App offers both free and premium subscription features:
+            </Paragraph>
+            <Paragraph>
+              <Text className="font-semibold">Free Tier:</Text>
+            </Paragraph>
+            <BulletPoint>One free skin scan every 30 days</BulletPoint>
+            <BulletPoint>Limited access to analysis results (overall skin score, basic recommendations)</BulletPoint>
+            <BulletPoint>Skin age estimation</BulletPoint>
+            <Paragraph>
+              <Text className="font-semibold">Premium Subscription:</Text>
             </Paragraph>
             <BulletPoint>Unlimited skin scans and analyses</BulletPoint>
+            <BulletPoint>Full access to detailed analysis results and breakdowns</BulletPoint>
             <BulletPoint>Advanced AI-powered recommendations</BulletPoint>
             <BulletPoint>Detailed progress tracking and history</BulletPoint>
             <BulletPoint>Personalized skincare routines</BulletPoint>
+            <BulletPoint>Skin age tracking over time</BulletPoint>
             <BulletPoint>Priority customer support</BulletPoint>
+            <Paragraph>
+              Free scan usage is tracked per user account. After using your monthly free scan, you must wait 30 days 
+              before the next free scan becomes available, or subscribe to premium for unlimited access.
+            </Paragraph>
           </Subsection>
 
           <Subsection title="6.2 Subscription Pricing and Billing">
