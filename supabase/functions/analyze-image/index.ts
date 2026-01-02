@@ -2,6 +2,44 @@
 // npm import works in Supabase Edge; the ts-ignore silences the editor squiggle.
 // @ts-ignore
 import { createClient } from "npm:@supabase/supabase-js@2";
+
+// --- SECURITY: Rate limiting configuration ---
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 5;       // 5 requests per minute per user
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(userId: string): { limited: boolean; remaining: number; resetIn: number } {
+  const now = Date.now();
+  const record = rateLimitStore.get(userId);
+  
+  if (!record || now > record.resetAt) {
+    rateLimitStore.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { limited: false, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetIn: RATE_LIMIT_WINDOW_MS };
+  }
+  
+  record.count++;
+  
+  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+    console.warn(`[SECURITY] Rate limit exceeded for user: ${userId}`);
+    return { limited: true, remaining: 0, resetIn: record.resetAt - now };
+  }
+  
+  return { limited: false, remaining: RATE_LIMIT_MAX_REQUESTS - record.count, resetIn: record.resetAt - now };
+}
+
+// Clean up old rate limit entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetAt) rateLimitStore.delete(key);
+  }
+}, 60 * 1000);
+
+// --- SECURITY: UUID validation ---
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 // --- Secrets (fail fast if missing)
 const PROJECT_URL = Deno.env.get("PROJECT_URL");
 const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
@@ -10,16 +48,34 @@ if (!PROJECT_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
   throw new Error("Missing PROJECT_URL, SERVICE_ROLE_KEY, or OPENAI_API_KEY");
 }
 const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
-function json(data, status = 200) {
+
+// --- SECURITY: Allowed origins for CORS ---
+const ALLOWED_ORIGINS = [
+  "https://www.clearskinai.ca",
+  "https://clearskinai.ca",
+];
+
+function getCorsHeaders(origin?: string | null): Record<string, string> {
+  const isDev = Deno.env.get("ENVIRONMENT") === "development";
+  const isLocalhost = origin?.includes("localhost") || origin?.includes("127.0.0.1");
+  const isAllowed = ALLOWED_ORIGINS.includes(origin || "");
+  
+  const allowedOrigin = (isAllowed || (isDev && isLocalhost)) 
+    ? origin || ALLOWED_ORIGINS[0]
+    : ALLOWED_ORIGINS[0];
+    
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS"
+  };
+}
+
+function json(data: unknown, status = 200, origin?: string | null) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      // CORS friendly if you ever hit this from web
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "authorization, content-type",
-      "Access-Control-Allow-Methods": "POST, OPTIONS"
-    }
+    headers: getCorsHeaders(origin)
   });
 }
 function normPath(p) {
@@ -208,7 +264,8 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
 }
 
 Deno.serve(async (req)=>{
-  if (req.method === "OPTIONS") return json({}, 200);
+  const origin = req.headers.get("Origin");
+  if (req.method === "OPTIONS") return json({}, 200, origin);
   if (req.method !== "POST") return new Response("Method Not Allowed", {
     status: 405
   });
@@ -224,6 +281,26 @@ Deno.serve(async (req)=>{
     if (userErr || !user) return new Response("Unauthorized", {
       status: 401
     });
+    
+    // --- 1.5) SECURITY: Rate limiting ---
+    const rateLimit = checkRateLimit(user.id);
+    if (rateLimit.limited) {
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: "Too many requests. Please wait before scanning again.",
+          retryAfter: Math.ceil(rateLimit.resetIn / 1000)
+        }),
+        { 
+          status: 429,
+          headers: {
+            ...getCorsHeaders(origin),
+            "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000))
+          }
+        }
+      );
+    }
+    
     // --- 2) Parse input
     const body = await req.json();
     const scan_session_id = String(body?.scan_session_id ?? "");
@@ -231,12 +308,34 @@ Deno.serve(async (req)=>{
     const left_path = normPath(String(body?.left_path ?? ""));
     const right_path = normPath(String(body?.right_path ?? ""));
     const user_context = String(body?.context ?? "").trim();
-    if (!scan_session_id || !front_path || !left_path || !right_path) {
+    
+    // --- SECURITY: Validate scan_session_id is a valid UUID ---
+    if (!scan_session_id || !isValidUUID(scan_session_id)) {
       return json({
         ok: false,
-        error: "Missing scan_session_id or paths"
-      }, 400);
+        error: "Invalid scan_session_id format"
+      }, 400, origin);
     }
+    
+    if (!front_path || !left_path || !right_path) {
+      return json({
+        ok: false,
+        error: "Missing image paths"
+      }, 400, origin);
+    }
+    
+    // --- SECURITY: Validate paths belong to user ---
+    const expectedPrefix = `user/${user.id}/`;
+    if (!front_path.startsWith(expectedPrefix) || 
+        !left_path.startsWith(expectedPrefix) || 
+        !right_path.startsWith(expectedPrefix)) {
+      console.warn(`[SECURITY] User ${user.id} attempted to access paths not belonging to them`);
+      return json({
+        ok: false,
+        error: "Unauthorized access to image paths"
+      }, 403, origin);
+    }
+    
     scanId = scan_session_id;
     // --- 2.5) Validate context if provided
     let validatedContext = undefined;
