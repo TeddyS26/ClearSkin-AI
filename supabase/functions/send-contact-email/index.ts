@@ -1,136 +1,187 @@
-// Supabase Edge Function: send-contact-email
-// This is the index.ts file for your send-contact-email edge function
-// Deploy this to: supabase/functions/send-contact-email/index.ts
+/**
+ * =============================================================================
+ * CLEARSKIN AI - SEND CONTACT EMAIL ENDPOINT
+ * =============================================================================
+ * 
+ * Handles contact form submissions from the mobile app.
+ * Sends emails via Resend API with HTML formatting.
+ * 
+ * Security measures:
+ * - Rate limiting (3 emails per hour per user)
+ * - JWT token validation
+ * - CORS protection
+ * - Input validation & sanitization (XSS prevention)
+ * - HTML entity encoding for email content
+ * 
+ * @version 2.0.0
+ * =============================================================================
+ */
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// --- SECURITY: Rate limiting (3 emails per hour per user) ---
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_MAX_REQUESTS = 3;
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+// Import shared security utilities
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  validateRequestBody,
+  sanitizeForHtml,
+  isValidEmail,
+  successResponse,
+  errorResponse
+} from "../_shared/security.ts";
 
-function checkRateLimit(userId: string): { limited: boolean; resetIn: number } {
-  const now = Date.now();
-  const record = rateLimitStore.get(userId);
-  
-  if (!record || now > record.resetAt) {
-    rateLimitStore.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { limited: false, resetIn: RATE_LIMIT_WINDOW_MS };
-  }
-  
-  record.count++;
-  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
-    console.warn(`[SECURITY] Contact email rate limit exceeded for user: ${userId}`);
-    return { limited: true, resetIn: record.resetAt - now };
-  }
-  return { limited: false, resetIn: record.resetAt - now };
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY');
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+
+if (!RESEND_API_KEY) {
+  throw new Error("Missing required environment variable: RESEND_API_KEY");
 }
 
-// Clean up old entries
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetAt) rateLimitStore.delete(key);
+// Contact email recipient
+const CONTACT_EMAIL = 'contact@clearskinai.ca';
+
+// =============================================================================
+// REQUEST BODY SCHEMA
+// =============================================================================
+
+const requestSchema = {
+  subject: {
+    type: 'string' as const,
+    required: true,
+    minLength: 1,
+    maxLength: 100,
+    sanitize: true
+  },
+  message: {
+    type: 'string' as const,
+    required: true,
+    minLength: 10,
+    maxLength: 1000,
+    sanitize: true
+  },
+  userEmail: {
+    type: 'string' as const,
+    required: false,
+    maxLength: 254
+  },
+  userName: {
+    type: 'string' as const,
+    required: false,
+    maxLength: 100,
+    sanitize: true
   }
-}, 60 * 1000);
+};
 
-// --- SECURITY: Allowed origins ---
-const ALLOWED_ORIGINS = ["https://www.clearskinai.ca", "https://clearskinai.ca"];
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
 
-function getCorsHeaders(origin?: string | null) {
-  const isDev = Deno.env.get("ENVIRONMENT") === "development";
-  const isLocalhost = origin?.includes("localhost") || origin?.includes("127.0.0.1");
-  const isAllowed = ALLOWED_ORIGINS.includes(origin || "");
-  const allowedOrigin = (isAllowed || (isDev && isLocalhost)) ? origin || ALLOWED_ORIGINS[0] : ALLOWED_ORIGINS[0];
-  
-  return {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-  };
-}
-
-// --- SECURITY: Sanitize HTML to prevent XSS in emails ---
-function sanitizeForHtml(input: string): string {
-  return input
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-serve(async (req)=>{
+serve(async (req) => {
   const origin = req.headers.get('Origin');
   const corsHeaders = getCorsHeaders(origin);
-  
+
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: corsHeaders
-    });
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  // Only allow POST method
+  if (req.method !== 'POST') {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
   }
+
   try {
-    // Create a Supabase client with the Auth context of the function
-    const supabaseClient = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
-      global: {
-        headers: {
-          Authorization: req.headers.get('Authorization')
+    // --- SECURITY: Authentication ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
+    // Create Supabase client with user's auth context
+    const supabaseClient = createClient(
+      SUPABASE_URL ?? '',
+      SUPABASE_ANON_KEY ?? '',
+      {
+        global: {
+          headers: { Authorization: authHeader }
         }
       }
-    });
-    // Verify the user is authenticated
+    );
+
+    // Get authenticated user
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
-      throw new Error('Unauthorized: Please sign in to send a message');
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', error: authError?.message });
+      return errorResponse("Unauthorized: Please sign in to send a message", 401, "UNAUTHORIZED", corsHeaders);
     }
+
+    // --- SECURITY: Rate Limiting (IP + User) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.contact, clientIP);
     
-    // --- SECURITY: Rate limiting ---
-    const rateLimit = checkRateLimit(user.id);
     if (rateLimit.limited) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Too many messages. Please try again later.',
-          retryAfter: Math.ceil(rateLimit.resetIn / 1000)
-        }),
-        { 
-          status: 429, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'Retry-After': String(Math.ceil(rateLimit.resetIn / 1000))
-          } 
-        }
+      logSecurityEvent('rate_limit_exceeded', { 
+        userId: user.id, 
+        ip: clientIP,
+        endpoint: 'send-contact-email'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+
+    // --- SECURITY: Parse and Validate Request Body ---
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400, "INVALID_JSON", corsHeaders);
+    }
+
+    const validation = validateRequestBody(body, requestSchema);
+    if (!validation.valid) {
+      logSecurityEvent('validation_failed', { 
+        userId: user.id, 
+        errors: validation.errors,
+        endpoint: 'send-contact-email'
+      });
+      return errorResponse(
+        `Validation failed: ${validation.errors.join(', ')}`,
+        400,
+        "VALIDATION_ERROR",
+        corsHeaders
       );
     }
-    
-    // Parse the request body
-    const { subject, message, userEmail, userName } = await req.json();
-    // Validate required fields
-    if (!subject || !message) {
-      throw new Error('Missing required fields: subject and message are required');
+
+    const { subject, message, userEmail, userName } = validation.sanitized as {
+      subject: string;
+      message: string;
+      userEmail?: string;
+      userName?: string;
+    };
+
+    // Validate email format if provided
+    const replyToEmail = userEmail || user.email || '';
+    if (replyToEmail && !isValidEmail(replyToEmail)) {
+      return errorResponse("Invalid email format", 400, "INVALID_EMAIL", corsHeaders);
     }
-    if (subject.length > 100) {
-      throw new Error('Subject must be 100 characters or less');
-    }
-    if (message.length > 1000) {
-      throw new Error('Message must be 1000 characters or less');
-    }
-    if (message.length < 10) {
-      throw new Error('Message must be at least 10 characters long');
-    }
-    
-    // --- SECURITY: Sanitize inputs for HTML email ---
+
+    // --- SECURITY: Sanitize all inputs for HTML email (XSS prevention) ---
     const safeSubject = sanitizeForHtml(subject);
     const safeMessage = sanitizeForHtml(message);
     const safeName = sanitizeForHtml(userName || 'Unknown User');
-    const safeEmail = sanitizeForHtml(userEmail || user.email || 'Unknown');
-    
-    // Get the Resend API key from environment variables
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      throw new Error('Email service not configured');
-    }
-    // Create the email content (using sanitized values)
+    const safeEmail = sanitizeForHtml(replyToEmail || 'Unknown');
+
+    // --- BUSINESS LOGIC: Send Email via Resend ---
     const emailSubject = `ClearSkinAI Contact: ${safeSubject}`;
     const emailHtml = `
       <!DOCTYPE html>
@@ -180,14 +231,14 @@ serve(async (req)=>{
             <div class="field">
               <div class="field-label">Timestamp:</div>
               <div class="field-value">${new Date().toLocaleString('en-US', {
-      timeZone: 'UTC',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })} UTC</div>
+                timeZone: 'UTC',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+              })} UTC</div>
             </div>
           </div>
           
@@ -198,72 +249,73 @@ serve(async (req)=>{
         </body>
       </html>
     `;
+
     // Send email using Resend API
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${resendApiKey}`,
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         from: 'ClearSkinAI <noreply@clearskinai.ca>',
-        to: [
-          'contact@clearskinai.ca'
-        ],
+        to: [CONTACT_EMAIL],
         subject: emailSubject,
         html: emailHtml,
-        reply_to: userEmail || user.email
+        reply_to: replyToEmail || undefined
       })
     });
+
     if (!emailResponse.ok) {
       const errorData = await emailResponse.text();
       console.error('Resend API error:', errorData);
-      throw new Error(`Email service error: ${emailResponse.status} ${emailResponse.statusText}`);
+      return errorResponse(
+        "Failed to send message. Please try again later.",
+        502,
+        "EMAIL_SERVICE_ERROR",
+        corsHeaders
+      );
     }
+
     const emailResult = await emailResponse.json();
     console.log('Email sent successfully:', emailResult.id);
-    // Optional: Log the contact message to your database for tracking
+
+    // Optional: Log the contact message to database for tracking
     try {
-      const { error: logError } = await supabaseClient.from('contact_messages') // You can create this table if you want to track messages
-      .insert({
-        user_id: user.id,
-        user_email: userEmail || user.email,
-        user_name: userName,
-        subject,
-        message,
-        status: 'sent',
-        email_id: emailResult.id,
-        created_at: new Date().toISOString()
-      });
+      const { error: logError } = await supabaseClient
+        .from('contact_messages')
+        .insert({
+          user_id: user.id,
+          user_email: replyToEmail,
+          user_name: userName,
+          subject,
+          message,
+          status: 'sent',
+          email_id: emailResult.id,
+          created_at: new Date().toISOString()
+        });
+
       if (logError) {
         console.warn('Failed to log contact message:', logError);
-      // Don't throw here - email was sent successfully
+        // Don't fail the request - email was sent successfully
       }
     } catch (logError) {
       console.warn('Failed to log contact message:', logError);
-    // Don't throw here - email was sent successfully
     }
-    return new Response(JSON.stringify({
+
+    return successResponse({
       success: true,
       message: 'Contact message sent successfully',
       emailId: emailResult.id
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      },
-      status: 200
-    });
+    }, 200, corsHeaders);
+
   } catch (error) {
-    console.error('Contact email error:', error);
-    return new Response(JSON.stringify({
-      error: error.message || 'Failed to send contact message'
-    }), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      },
-      status: 400
-    });
+    console.error('send-contact-email error:', error);
+    return errorResponse(
+      "An error occurred while sending your message",
+      500,
+      "INTERNAL_ERROR",
+      corsHeaders
+    );
   }
 });
