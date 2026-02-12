@@ -30,6 +30,8 @@ import {
   handleCorsPreflightRequest,
   getClientIP,
   logSecurityEvent,
+  validateContentLength,
+  requireEnv,
   successResponse,
   errorResponse
 } from "../_shared/security.ts";
@@ -38,19 +40,11 @@ import {
 // CONFIGURATION
 // =============================================================================
 
-// Validate required environment variables at startup
-const PROJECT_URL = Deno.env.get("PROJECT_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
-const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY_TEST");
+// --- SECURITY: Fail fast if any required secret is missing (OWASP A05:2021) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY_TEST");
 const PORTAL_RETURN_URL = Deno.env.get("PORTAL_RETURN_URL");
-
-if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
-  throw new Error("Missing required environment variables: PROJECT_URL or SERVICE_ROLE_KEY");
-}
-
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("Missing required environment variable: STRIPE_SECRET_KEY_TEST");
-}
 
 // Initialize clients
 const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
@@ -74,6 +68,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
   }
+
+  // --- SECURITY: Reject oversized payloads (max 10KB for this endpoint) ---
+  const sizeCheck = validateContentLength(req, 10 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
 
   try {
     // --- SECURITY: Authentication ---

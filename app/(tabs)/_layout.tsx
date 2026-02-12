@@ -4,6 +4,7 @@ import { Pressable, View, Platform } from "react-native";
 import { Home, Sun, Camera, Activity, History, Lock } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { canScan } from "../../src/lib/billing";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function CenterScanButton() {
   const router = useRouter();
@@ -55,6 +56,7 @@ function CenterScanButton() {
 
 export default function TabsLayout() {
   const { user, loading, profileComplete } = useAuth();
+  const insets = useSafeAreaInsets();
   
   if (loading) return null;
   if (!user) return <Redirect href="/auth/sign-in" />;
@@ -64,6 +66,10 @@ export default function TabsLayout() {
   
   // If profile is not complete, redirect to profile setup
   if (!profileComplete) return <Redirect href="/auth/profile-setup" />;
+
+  // Calculate proper bottom padding for Android navigation bar
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 8) : 20;
+  const tabBarHeight = Platform.OS === 'ios' ? 88 : 60 + bottomInset;
 
   return (
     <Tabs 
@@ -75,9 +81,9 @@ export default function TabsLayout() {
           backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.95)' : '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#E5E7EB',
-          height: Platform.OS === 'ios' ? 88 : 68,
+          height: tabBarHeight,
           paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+          paddingBottom: bottomInset,
           position: 'absolute',
         },
         tabBarLabelStyle: {

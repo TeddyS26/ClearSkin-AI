@@ -32,6 +32,7 @@ import {
   validateRequestBody,
   sanitizeForHtml,
   isValidEmail,
+  validateContentLength,
   successResponse,
   errorResponse
 } from "../_shared/security.ts";
@@ -99,6 +100,10 @@ serve(async (req) => {
   if (req.method !== 'POST') {
     return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
   }
+
+  // --- SECURITY: Reject oversized payloads (max 50KB for contact form) ---
+  const sizeCheck = validateContentLength(req, 50 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
 
   try {
     // --- SECURITY: Authentication ---

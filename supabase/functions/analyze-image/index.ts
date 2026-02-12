@@ -3,74 +3,31 @@
 // @ts-ignore
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-// --- SECURITY: Rate limiting configuration ---
-const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 5;       // 5 requests per minute per user
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+// --- SECURITY: Import shared security utilities (rate limiting, CORS, validation) ---
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  isValidUUID,
+  validateContentLength,
+  requireEnv,
+  errorResponse,
+  successResponse
+} from "../_shared/security.ts";
 
-function checkRateLimit(userId: string): { limited: boolean; remaining: number; resetIn: number } {
-  const now = Date.now();
-  const record = rateLimitStore.get(userId);
-  
-  if (!record || now > record.resetAt) {
-    rateLimitStore.set(userId, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { limited: false, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetIn: RATE_LIMIT_WINDOW_MS };
-  }
-  
-  record.count++;
-  
-  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
-    console.warn(`[SECURITY] Rate limit exceeded for user: ${userId}`);
-    return { limited: true, remaining: 0, resetIn: record.resetAt - now };
-  }
-  
-  return { limited: false, remaining: RATE_LIMIT_MAX_REQUESTS - record.count, resetIn: record.resetAt - now };
-}
+// --- Secrets (fail fast if missing, using shared requireEnv) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+const OPENAI_API_KEY = requireEnv("OPENAI_API_KEY");
 
-// Clean up old rate limit entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitStore.entries()) {
-    if (now > value.resetAt) rateLimitStore.delete(key);
-  }
-}, 60 * 1000);
-
-// --- SECURITY: UUID validation ---
-function isValidUUID(str: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
-}
-
-// --- Secrets (fail fast if missing)
-const PROJECT_URL = Deno.env.get("PROJECT_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-if (!PROJECT_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
-  throw new Error("Missing PROJECT_URL, SERVICE_ROLE_KEY, or OPENAI_API_KEY");
-}
 const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
 
-// --- SECURITY: Allowed origins for CORS ---
-const ALLOWED_ORIGINS = [
-  "https://www.clearskinai.ca",
-  "https://clearskinai.ca",
-];
-
-function getCorsHeaders(origin?: string | null): Record<string, string> {
-  const isDev = Deno.env.get("ENVIRONMENT") === "development";
-  const isLocalhost = origin?.includes("localhost") || origin?.includes("127.0.0.1");
-  const isAllowed = ALLOWED_ORIGINS.includes(origin || "");
-  
-  const allowedOrigin = (isAllowed || (isDev && isLocalhost)) 
-    ? origin || ALLOWED_ORIGINS[0]
-    : ALLOWED_ORIGINS[0];
-    
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": allowedOrigin,
-    "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
-  };
-}
+// --- SECURITY: Use shared CORS configuration ---
+// CORS headers are provided by the imported getCorsHeaders() from shared security module.
 
 function json(data: unknown, status = 200, origin?: string | null) {
   return new Response(JSON.stringify(data), {
@@ -265,75 +222,105 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
 
 Deno.serve(async (req)=>{
   const origin = req.headers.get("Origin");
-  if (req.method === "OPTIONS") return json({}, 200, origin);
-  if (req.method !== "POST") return new Response("Method Not Allowed", {
-    status: 405
-  });
+  const corsHeaders = getCorsHeaders(origin);
+
+  // --- SECURITY: Handle CORS preflight using shared module ---
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  if (req.method !== "POST") {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
+  }
+
+  // --- SECURITY: Reject oversized payloads (max 5MB for image paths) ---
+  const sizeCheck = validateContentLength(req, 5 * 1024 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
+
   let scanId = null;
   try {
-    // --- 1) Auth (user token)
+    // --- 1) SECURITY: Authentication (JWT validation) ---
     const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return new Response("Unauthorized", {
-      status: 401
-    });
+    if (!auth?.startsWith("Bearer ")) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header', endpoint: 'analyze-image' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
     const token = auth.split(" ")[1];
     const { data: { user }, error: userErr } = await sb.auth.getUser(token);
-    if (userErr || !user) return new Response("Unauthorized", {
-      status: 401
-    });
-    
-    // --- 1.5) SECURITY: Rate limiting ---
-    const rateLimit = checkRateLimit(user.id);
-    if (rateLimit.limited) {
-      return new Response(
-        JSON.stringify({ 
-          ok: false, 
-          error: "Too many requests. Please wait before scanning again.",
-          retryAfter: Math.ceil(rateLimit.resetIn / 1000)
-        }),
-        { 
-          status: 429,
-          headers: {
-            ...getCorsHeaders(origin),
-            "Retry-After": String(Math.ceil(rateLimit.resetIn / 1000))
-          }
-        }
-      );
+    if (userErr || !user) {
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', endpoint: 'analyze-image' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
     }
     
-    // --- 2) Parse input
-    const body = await req.json();
+    // --- 1.5) SECURITY: Rate limiting (IP + user-based via shared module) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.expensive, clientIP);
+    if (rateLimit.limited) {
+      logSecurityEvent('rate_limit_exceeded', {
+        userId: user.id,
+        ip: clientIP,
+        endpoint: 'analyze-image'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+    
+    // --- 2) SECURITY: Parse and validate input with strict type checks ---
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400, "INVALID_JSON", corsHeaders);
+    }
+
+    // Reject unexpected fields (OWASP: reject unknown inputs)
+    const allowedFields = new Set(['scan_session_id', 'front_path', 'left_path', 'right_path', 'context']);
+    for (const key of Object.keys(body)) {
+      if (!allowedFields.has(key)) {
+        logSecurityEvent('suspicious_input', { userId: user.id, unexpectedField: key, endpoint: 'analyze-image' });
+        return errorResponse(`Unexpected field: ${key}`, 400, "VALIDATION_ERROR", corsHeaders);
+      }
+    }
+
     const scan_session_id = String(body?.scan_session_id ?? "");
     const front_path = normPath(String(body?.front_path ?? ""));
     const left_path = normPath(String(body?.left_path ?? ""));
     const right_path = normPath(String(body?.right_path ?? ""));
-    const user_context = String(body?.context ?? "").trim();
+    // Sanitize context: enforce string type, length limit, strip dangerous characters
+    const rawContext = String(body?.context ?? "").trim();
+    const user_context = rawContext
+      .slice(0, 500)
+      .replace(/[<>]/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+=/gi, '');
     
-    // --- SECURITY: Validate scan_session_id is a valid UUID ---
+    // --- SECURITY: Validate scan_session_id is a valid UUID (prevents injection) ---
     if (!scan_session_id || !isValidUUID(scan_session_id)) {
-      return json({
-        ok: false,
-        error: "Invalid scan_session_id format"
-      }, 400, origin);
+      logSecurityEvent('validation_failed', { userId: user.id, reason: 'Invalid scan_session_id', endpoint: 'analyze-image' });
+      return errorResponse("Invalid scan_session_id format", 400, "VALIDATION_ERROR", corsHeaders);
     }
     
     if (!front_path || !left_path || !right_path) {
-      return json({
-        ok: false,
-        error: "Missing image paths"
-      }, 400, origin);
+      return errorResponse("Missing image paths", 400, "VALIDATION_ERROR", corsHeaders);
+    }
+
+    // --- SECURITY: Validate path lengths (max 500 chars) ---
+    if (front_path.length > 500 || left_path.length > 500 || right_path.length > 500) {
+      return errorResponse("Image path too long", 400, "VALIDATION_ERROR", corsHeaders);
+    }
+
+    // --- SECURITY: Check for path traversal attempts ---
+    const pathTraversalPattern = /\.\.|\/\//;
+    if (pathTraversalPattern.test(front_path) || pathTraversalPattern.test(left_path) || pathTraversalPattern.test(right_path)) {
+      logSecurityEvent('suspicious_input', { userId: user.id, reason: 'Path traversal attempt', endpoint: 'analyze-image' });
+      return errorResponse("Invalid path format", 400, "VALIDATION_ERROR", corsHeaders);
     }
     
-    // --- SECURITY: Validate paths belong to user ---
+    // --- SECURITY: Validate paths belong to user (prevents unauthorized data access) ---
     const expectedPrefix = `user/${user.id}/`;
     if (!front_path.startsWith(expectedPrefix) || 
         !left_path.startsWith(expectedPrefix) || 
         !right_path.startsWith(expectedPrefix)) {
-      console.warn(`[SECURITY] User ${user.id} attempted to access paths not belonging to them`);
-      return json({
-        ok: false,
-        error: "Unauthorized access to image paths"
-      }, 403, origin);
+      logSecurityEvent('unauthorized_access', { userId: user.id, reason: 'Path ownership violation', endpoint: 'analyze-image' });
+      return errorResponse("Unauthorized access to image paths", 403, "FORBIDDEN", corsHeaders);
     }
     
     scanId = scan_session_id;
@@ -1157,7 +1144,7 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       ok: true
     });
   } catch (e) {
-    // Best-effort mark failed
+    // Best-effort mark scan as failed
     if (scanId) {
       try {
         await sb.from("scan_sessions").update({
@@ -1165,9 +1152,12 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
         }).eq("id", scanId);
       } catch  {}
     }
+    // --- SECURITY: Log internal error but return generic message to client ---
+    // Never expose internal error details to the client (OWASP A09:2021)
+    console.error("[analyze-image] Internal error:", e);
     return json({
       ok: false,
-      error: String(e)
+      error: "An error occurred during skin analysis. Please try again."
     }, 500);
   }
 });
