@@ -1,16 +1,7 @@
 import * as FileSystem from "expo-file-system/legacy";
 import { supabase } from "./supabase";
 
-// --- SECURITY: Validate base URL at module load time ---
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-if (!SUPABASE_URL) {
-  throw new Error("[SECURITY] EXPO_PUBLIC_SUPABASE_URL is not set");
-}
-// Ensure URL is HTTPS in production to prevent man-in-the-middle attacks
-if (!SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('localhost') && !SUPABASE_URL.includes('127.0.0.1')) {
-  console.warn('[SECURITY] EXPO_PUBLIC_SUPABASE_URL should use HTTPS in production');
-}
-const FUNC_BASE = `${SUPABASE_URL}/functions/v1`;
+const FUNC_BASE = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1`;
 
 export async function getAccessToken() {
   const { data } = await supabase.auth.getSession();
@@ -159,24 +150,10 @@ export async function getRecentCompletedScans(limit: number = 2) {
 
 // Batch sign any storage paths via your edge function
 export async function signStoragePaths(paths: string[]) {
-  // --- SECURITY: Validate paths before sending to server ---
   if (!paths?.length) return {};
-  if (paths.length > 10) {
-    throw new Error('Too many paths. Maximum 10 per request.');
-  }
-  // Ensure all paths are strings with sane lengths
-  for (const p of paths) {
-    if (typeof p !== 'string' || p.length === 0 || p.length > 500) {
-      throw new Error('Invalid path format');
-    }
-    // Check for path traversal
-    if (p.includes('..') || p.includes('//')) {
-      throw new Error('Invalid path format');
-    }
-  }
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/sign-storage-urls`, {
+  const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/sign-storage-urls`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ paths }),

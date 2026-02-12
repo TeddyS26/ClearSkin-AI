@@ -28,7 +28,6 @@ import {
   handleCorsPreflightRequest,
   getClientIP,
   logSecurityEvent,
-  validateContentLength,
   successResponse,
   errorResponse
 } from "../_shared/security.ts";
@@ -72,9 +71,7 @@ serve(async (req) => {
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
   }
-  // --- SECURITY: Reject oversized payloads (max 10KB for export request) ---
-  const sizeCheck = validateContentLength(req, 10 * 1024, corsHeaders);
-  if (sizeCheck) return sizeCheck;
+
   console.log('🚀 Export function called');
 
   try {

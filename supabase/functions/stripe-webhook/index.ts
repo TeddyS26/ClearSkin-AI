@@ -29,20 +29,30 @@ import {
   RATE_LIMITS,
   getClientIP,
   logSecurityEvent,
-  isValidUUID,
-  validateContentLength,
-  requireEnv
+  isValidUUID
 } from "../_shared/security.ts";
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
-// --- SECURITY: Fail fast if required secrets are missing (OWASP A05:2021) ---
-const PROJECT_URL = requireEnv("PROJECT_URL");
-const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
-const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY_TEST");
-const WEBHOOK_SECRET = requireEnv("STRIPE_WEBHOOK_SECRET_TEST");
+// Validate required environment variables at startup
+const PROJECT_URL = Deno.env.get("PROJECT_URL");
+const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY_TEST");
+const WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET_TEST");
+
+if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
+  throw new Error("Missing required environment variables: PROJECT_URL or SERVICE_ROLE_KEY");
+}
+
+if (!STRIPE_SECRET_KEY) {
+  throw new Error("Missing required environment variable: STRIPE_SECRET_KEY_TEST");
+}
+
+if (!WEBHOOK_SECRET) {
+  throw new Error("Missing required environment variable: STRIPE_WEBHOOK_SECRET_TEST");
+}
 
 // Initialize clients
 const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
@@ -144,16 +154,6 @@ Deno.serve(async (req) => {
   // Only allow POST method for webhooks
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
-  }
-
-  // --- SECURITY: Reject oversized webhook payloads (max 1MB) ---
-  const contentLength = req.headers.get("content-length");
-  if (contentLength) {
-    const size = parseInt(contentLength, 10);
-    if (!isNaN(size) && size > 1 * 1024 * 1024) {
-      logSecurityEvent('validation_failed', { reason: 'Webhook payload too large', size });
-      return jsonResponse({ error: "Payload too large" }, 413);
-    }
   }
 
   // --- SECURITY: Rate Limiting by IP ---

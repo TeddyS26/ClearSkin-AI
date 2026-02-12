@@ -2,12 +2,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { supabase } from "./supabase";
 
-// --- SECURITY: Validate base URL at module load time ---
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-if (!SUPABASE_URL) {
-  throw new Error("[SECURITY] EXPO_PUBLIC_SUPABASE_URL is not set");
-}
-const FUNC = `${SUPABASE_URL}/functions/v1`;
+const FUNC = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1`;
 
 // Free scan cooldown period in days
 const FREE_SCAN_COOLDOWN_DAYS = 30;

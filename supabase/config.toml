@@ -362,15 +362,6 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
-# =============================================================================
-# EDGE FUNCTIONS CONFIGURATION
-# =============================================================================
-
-# Stripe webhook must bypass JWT verification since Stripe uses signature-based auth
-# The webhook function itself verifies requests using Stripe's webhook signature
-[functions.stripe-webhook]
-verify_jwt = false
-
 [analytics]
 enabled = true
 port = 54327
