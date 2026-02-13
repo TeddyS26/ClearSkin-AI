@@ -4,7 +4,7 @@
 
 This document outlines the security measures implemented in the ClearSkin AI application and the steps required to ensure complete security in production.
 
-**Last Security Audit:** January 2025  
+**Last Security Audit:** February 2026  
 **OWASP Compliance:** Top 10:2025  
 **Status:** Production Ready
 
@@ -35,9 +35,12 @@ const corsHeaders = getCorsHeaders(req);
 
 ### 1. API Key Management
 - All secrets use environment variables (`Deno.env.get()`, `process.env.EXPO_PUBLIC_*`)
+- `requireEnv()` helper enforces fail-fast at startup if secrets are missing
 - No hardcoded API keys in source code
 - Frontend only has access to public keys (ANON_KEY)
 - Service role keys only used in Edge Functions (server-side)
+- `google-service-account.json` is `.gitignore`d — never committed to version control
+- Client-side `supabase.ts` validates env vars and warns if key looks like a service_role key
 
 ### 2. Authentication & Sessions
 - JWT tokens expire in 3600 seconds (1 hour)
@@ -52,33 +55,41 @@ const corsHeaders = getCorsHeaders(req);
 - `billing_customers` - RLS enabled with SELECT-only policy
 - `scan_credits` - RLS enabled with SELECT-only policy
 
-### 4. Rate Limiting (Enhanced January 2025)
+### 4. Rate Limiting (Enhanced February 2026)
 
-All endpoints now use **IP + user-based compound rate limiting** via `_shared/security.ts`:
+All endpoints use **IP + user-based compound rate limiting** via `_shared/security.ts`.
+IP-based limits are 3x more permissive to accommodate shared networks.
 
-| Endpoint | Limit | Window | Type |
-|----------|-------|--------|------|
-| `analyze-image` | 3 requests | 1 minute | expensive |
-| `authorize-scan` | 30 requests | 1 minute | read |
-| `billing-portal` | 10 requests | 1 minute | standard |
-| `create-checkout-session` | 3 requests | 1 minute | expensive |
-| `create-subscription-payment` | 3 requests | 1 minute | expensive |
-| `cancel-subscription` | 10 requests | 1 minute | standard |
-| `sign-storage-urls` | 30 requests | 1 minute | read |
+| Endpoint | User Limit | Window | Type |
+|----------|-----------|--------|------|
+| `analyze-image` | 5 requests | 1 minute | expensive |
+| `authorize-scan` | 60 requests | 1 minute | read |
+| `billing-portal` | 20 requests | 1 minute | standard |
+| `create-checkout-session` | 20 requests | 1 minute | standard |
+| `create-subscription-payment` | 20 requests | 1 minute | standard |
+| `cancel-subscription` | 20 requests | 1 minute | standard |
+| `sign-storage-urls` | 60 requests | 1 minute | read |
 | `stripe-webhook` | 100 requests | 1 minute | webhook |
-| `send-contact-email` | 5 requests | 1 hour | contact |
+| `send-contact-email` | 3 requests | 1 hour | contact |
 | `export-user-data` | 1 request | 1 hour | export |
-| Auth (sign-in/sign-up) | 5 requests | 15 minutes | auth |
+| Auth (sign-in/sign-up) | 10 requests | 15 minutes | auth |
 
-### 5. Input Validation (Enhanced January 2025)
+Rate limit responses return HTTP 429 with RFC 6585 compliant `Retry-After` and `X-RateLimit-*` headers.
+
+### 5. Input Validation (Enhanced February 2026)
 - **Schema-based validation** with `validateRequestBody()` - type checks, length limits, unknown field rejection
+- **Content-Length enforcement** via `validateContentLength()` on all endpoints (prevents oversized payload attacks)
+- **`safeParseBody()`** — combined body size + JSON parse with typed error returns
+- **analyze-image**: explicit allowlist of fields, rejects unknown properties
 - Context validation via AI (skincare relevance check)
 - UUID validation for scan_session_id using `isValidUUID()`
-- Path traversal prevention with `validateUserPath()` - blocks `..` and `//`
+- Path traversal prevention with `validateUserPath()` — blocks `..` and `//`
+- Path length limits (max 500 chars) on all storage paths
 - Subscription ID pattern validation: `/^sub_[a-zA-Z0-9]+$/`
 - Length limits on contact form (subject: 100, message: 1000)
 - Minimum password length: 8 characters
 - Client-side validation in `src/lib/validation.ts`
+- Client-side pre-flight validation in `scan.ts`, `contact.ts`, `billing.ts`
 
 ### 6. CORS Configuration (Fixed January 2025)
 - **All wildcards removed** - strict origin checking only
@@ -86,13 +97,14 @@ All endpoints now use **IP + user-based compound rate limiting** via `_shared/se
 - Development mode allows `localhost:*`
 - Preflight caching (24 hours)
 - Centralized via `getCorsHeaders()` in shared security module
+- Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`
 
 ### 7. SQL Injection Prevention
 - All queries use Supabase's parameterized query builder
 - No raw SQL with user input concatenation
 
 ### 8. XSS Prevention (Enhanced January 2025)
-- `sanitizeString()` - removes HTML brackets, javascript: protocol, event handlers
+- `sanitizeString()` - removes HTML brackets, javascript: protocol, event handlers, control characters
 - `sanitizeForHtml()` - HTML entity encoding for email content
 - React Native handles output encoding by default
 
@@ -107,11 +119,17 @@ All endpoints now use **IP + user-based compound rate limiting** via `_shared/se
 - **Idempotency check** - `processedEvents` Map prevents replay attacks
 - Event replay protection (5-minute window)
 - UUID validation for user IDs in metadata
+- Payload size limit (1MB) to prevent DoS
 
 ### 11. Security Logging (Added January 2025)
 - `logSecurityEvent()` for audit trail
 - Automatic sensitive data redaction (passwords, tokens, keys)
 - Structured logging with severity levels
+
+### 12. Error Handling (Enhanced February 2026)
+- Internal errors are logged server-side but never exposed to clients
+- Generic error messages returned in all 500 responses
+- Error codes returned for programmatic handling (`RATE_LIMIT_EXCEEDED`, `VALIDATION_ERROR`, etc.)
 
 ---
 
@@ -285,6 +303,12 @@ In Stripe Dashboard > Developers > Webhooks:
 3. **Webhook Signing Secret**
    - Copy to Supabase Edge Function secrets as `STRIPE_WEBHOOK_SECRET`
    - Rotate if compromised
+
+4. **CRITICAL: Disable JWT Verification for Webhook**
+   - In Supabase Dashboard > Edge Functions > stripe-webhook
+   - Under "Settings", disable "Enforce JWT Verification"
+   - This is required because Stripe uses signature-based authentication, not JWT
+   - The webhook function itself verifies authenticity using Stripe's webhook signature
 
 ### API Keys
 In Stripe Dashboard > Developers > API keys:

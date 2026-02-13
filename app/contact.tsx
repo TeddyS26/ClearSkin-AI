@@ -114,6 +114,7 @@ export default function Contact() {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
           <View className="px-5 pt-6 pb-4">

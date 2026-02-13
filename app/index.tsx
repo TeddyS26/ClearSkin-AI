@@ -1,9 +1,18 @@
 import { View, Text, Pressable } from "react-native";
-import { Link } from "expo-router";
+import { Link, Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Sparkles } from "lucide-react-native";
+import { useAuth } from "../src/ctx/AuthContext";
 
 export default function Welcome() {
+  const { user, loading } = useAuth();
+
+  // If still loading auth state, show nothing (brief splash)
+  if (loading) return null;
+
+  // If user is already signed in, skip welcome and go to main app
+  if (user) return <Redirect href="/(tabs)/home" />;
+
   return (
     <SafeAreaView className="flex-1 bg-emerald-50" edges={["top"]}>
       <View className="flex-1 items-center justify-center px-6">

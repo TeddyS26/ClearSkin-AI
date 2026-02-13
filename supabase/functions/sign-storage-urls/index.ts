@@ -32,6 +32,8 @@ import {
   logSecurityEvent,
   validateRequestBody,
   validateUserPath,
+  validateContentLength,
+  requireEnv,
   successResponse,
   errorResponse
 } from "../_shared/security.ts";
@@ -40,13 +42,9 @@ import {
 // CONFIGURATION
 // =============================================================================
 
-// Validate required environment variables at startup
-const PROJECT_URL = Deno.env.get("PROJECT_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
-
-if (!PROJECT_URL || !SERVICE_ROLE_KEY) {
-  throw new Error("Missing required environment variables: PROJECT_URL or SERVICE_ROLE_KEY");
-}
+// --- SECURITY: Fail fast if required secrets are missing (OWASP A05:2021) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
 
 // Initialize Supabase client with service role
 const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
@@ -97,6 +95,10 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
   }
+
+  // --- SECURITY: Reject oversized payloads (max 50KB for path arrays) ---
+  const sizeCheck = validateContentLength(req, 50 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
 
   try {
     // --- SECURITY: Authentication ---

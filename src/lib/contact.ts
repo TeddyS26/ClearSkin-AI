@@ -50,7 +50,29 @@ export async function sendContactMessage(
   userName: string,
   authToken: string
 ) {
-  const response = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/send-contact-email`, {
+  // --- SECURITY: Client-side input validation before API call ---
+  if (!subject || typeof subject !== 'string' || subject.trim().length === 0) {
+    throw new Error('Subject is required');
+  }
+  if (subject.length > 100) {
+    throw new Error('Subject must be 100 characters or less');
+  }
+  if (!message || typeof message !== 'string' || message.trim().length < 10) {
+    throw new Error('Message must be at least 10 characters');
+  }
+  if (message.length > 1000) {
+    throw new Error('Message must be 1000 characters or less');
+  }
+  if (!authToken) {
+    throw new Error('Authentication required');
+  }
+
+  const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!SUPABASE_URL) {
+    throw new Error('[SECURITY] EXPO_PUBLIC_SUPABASE_URL is not set');
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/send-contact-email`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${authToken}`,
