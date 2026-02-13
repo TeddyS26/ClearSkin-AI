@@ -17,9 +17,10 @@
  * =============================================================================
  */
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@14.0.0";
+// @ts-expect-error - npm specifier not recognized by tsc
+import { createClient } from "npm:@supabase/supabase-js@2";
+// @ts-expect-error - npm specifier not recognized by tsc
+import Stripe from "npm:stripe@14";
 
 // Import shared security utilities
 import {
@@ -32,6 +33,7 @@ import {
   logSecurityEvent,
   validateRequestBody,
   validateContentLength,
+  requireEnv,
   successResponse,
   errorResponse
 } from "../_shared/security.ts";
@@ -40,18 +42,14 @@ import {
 // CONFIGURATION
 // =============================================================================
 
-// Validate required environment variables at startup
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
-const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY_TEST");
-
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("Missing required environment variable: STRIPE_SECRET_KEY_TEST");
-}
+// --- SECURITY: Fail fast if any required secret is missing (OWASP A05:2021) ---
+const SUPABASE_URL = requireEnv("PROJECT_URL");
+const SUPABASE_ANON_KEY = requireEnv("SERVICE_ROLE_KEY");
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY_TEST");
 
 // Initialize Stripe client
 const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16"
+  apiVersion: "2024-06-20"
 });
 
 // =============================================================================
@@ -72,7 +70,7 @@ const requestSchema = {
 // MAIN HANDLER
 // =============================================================================
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -207,12 +205,13 @@ serve(async (req) => {
       }
     }, 200, corsHeaders);
 
-  } catch (error) {
-    console.error("cancel-subscription error:", error);
+  } catch (err: unknown) {
+    console.error("cancel-subscription error:", err);
     
     // Handle Stripe-specific errors
-    if (error instanceof Stripe.errors.StripeError) {
-      if (error.code === 'resource_missing') {
+    if (err instanceof Error && 'code' in err) {
+      const stripeErr = err as { code?: string };
+      if (stripeErr.code === 'resource_missing') {
         return errorResponse(
           "Subscription not found in payment system",
           404,
