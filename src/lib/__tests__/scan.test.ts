@@ -719,6 +719,41 @@ describe("scan.ts", () => {
       const result = await signStoragePaths(["path1.jpg"]);
       expect(result).toEqual({});
     });
+
+    it("should batch paths into chunks of 10 when more than 10 provided", async () => {
+      const paths = Array.from({ length: 15 }, (_, i) => `path${i + 1}.jpg`);
+      const mockToken = "token-123";
+
+      (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+        data: { session: { access_token: mockToken } },
+      });
+
+      // First batch: 10 paths, second batch: 5 paths
+      (global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: paths.slice(0, 10).map(p => ({ path: p, url: `https://signed/${p}` })),
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            results: paths.slice(10).map(p => ({ path: p, url: `https://signed/${p}` })),
+          }),
+        });
+
+      const result = await signStoragePaths(paths);
+
+      expect(Object.keys(result)).toHaveLength(15);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      // Verify first call has 10 paths
+      const firstCallBody = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
+      expect(firstCallBody.paths).toHaveLength(10);
+      // Verify second call has 5 paths
+      const secondCallBody = JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body);
+      expect(secondCallBody.paths).toHaveLength(5);
+    });
   });
 
   describe("fmtDate", () => {

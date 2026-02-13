@@ -158,12 +158,10 @@ export async function getRecentCompletedScans(limit: number = 2) {
 }
 
 // Batch sign any storage paths via your edge function
+// Automatically chunks into batches of 10 (the server-side maximum)
 export async function signStoragePaths(paths: string[]) {
   // --- SECURITY: Validate paths before sending to server ---
   if (!paths?.length) return {};
-  if (paths.length > 10) {
-    throw new Error('Too many paths. Maximum 10 per request.');
-  }
   // Ensure all paths are strings with sane lengths
   for (const p of paths) {
     if (typeof p !== 'string' || p.length === 0 || p.length > 500) {
@@ -174,17 +172,25 @@ export async function signStoragePaths(paths: string[]) {
       throw new Error('Invalid path format');
     }
   }
+
+  const BATCH_SIZE = 10;
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/sign-storage-urls`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ paths }),
-  });
-  if (!res.ok) return {};
-  const json = await res.json();
   const map: Record<string, string> = {};
-  (json?.results ?? []).forEach((r: any) => { if (r?.path && r?.url) map[r.path] = r.url; });
+
+  // Process paths in chunks of BATCH_SIZE
+  for (let i = 0; i < paths.length; i += BATCH_SIZE) {
+    const chunk = paths.slice(i, i + BATCH_SIZE);
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/sign-storage-urls`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ paths: chunk }),
+    });
+    if (!res.ok) continue;
+    const json = await res.json();
+    (json?.results ?? []).forEach((r: any) => { if (r?.path && r?.url) map[r.path] = r.url; });
+  }
+
   return map;
 }
 
