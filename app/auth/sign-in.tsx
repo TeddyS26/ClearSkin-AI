@@ -15,7 +15,6 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!loading && user) {
-      // @ts-ignore - route exists but not in generated types yet
       router.replace("/subscribe");
     }
   }, [loading, user]);

@@ -33,7 +33,6 @@ export default function SignUp() {
         router.replace("/subscribe");
       } else {
         // Email confirmation required - redirect to check email screen
-        // @ts-ignore - route exists but not in generated types yet
         router.replace({ pathname: "/auth/check-email", params: { email: email.trim() } });
       }
     } catch (e: any) {

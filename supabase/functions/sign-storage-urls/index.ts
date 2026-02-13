@@ -18,7 +18,7 @@
  * =============================================================================
  */
 
-// @ts-ignore errors about "npm:" imports in Supabase editor
+// @ts-expect-error errors about "npm:" imports in Supabase editor
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // Import shared security utilities
@@ -83,7 +83,7 @@ function normalizePath(path: string): string {
 // MAIN HANDLER
 // =============================================================================
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
   const corsHeaders = getCorsHeaders(origin);
 

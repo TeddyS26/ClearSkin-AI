@@ -17,9 +17,9 @@
  * =============================================================================
  */
 
-// @ts-ignore
+// @ts-expect-error - npm specifier not recognized by tsc
 import { createClient } from "npm:@supabase/supabase-js@2";
-// @ts-ignore
+// @ts-expect-error - npm specifier not recognized by tsc
 import Stripe from "npm:stripe@14";
 
 // Import shared security utilities
@@ -140,7 +140,7 @@ function mapSubscriptionStatus(stripeStatus: string, eventType: string): string 
 // MAIN HANDLER
 // =============================================================================
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   // Only allow POST method for webhooks
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);

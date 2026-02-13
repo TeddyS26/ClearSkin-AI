@@ -1,6 +1,6 @@
 // Edge Function: analyze-image (with face detection validation and context support)
-// npm import works in Supabase Edge; the ts-ignore silences the editor squiggle.
-// @ts-ignore
+// npm import works in Supabase Edge; the ts-expect-error silences the editor squiggle.
+// @ts-expect-error - npm specifier not recognized by tsc
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // --- SECURITY: Import shared security utilities (rate limiting, CORS, validation) ---
@@ -35,14 +35,14 @@ function json(data: unknown, status = 200, origin?: string | null) {
     headers: getCorsHeaders(origin)
   });
 }
-function normPath(p) {
+function normPath(p: string) {
   return p?.startsWith("/") ? p.slice(1) : p;
 }
 /**
  * Validates that user-provided context is relevant to skincare
  * @param context - User-provided context string
  * @returns { valid: boolean, error?: string, sanitized?: string }
- */ async function validateContext(context) {
+ */ async function validateContext(context: string) {
   if (!context || context.trim().length === 0) {
     return {
       valid: true
@@ -220,7 +220,7 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
   }
 }
 
-Deno.serve(async (req)=>{
+Deno.serve(async (req: Request)=>{
   const origin = req.headers.get("Origin");
   const corsHeaders = getCorsHeaders(origin);
 
@@ -349,7 +349,7 @@ Deno.serve(async (req)=>{
       } : {}
     }).eq("id", scan_session_id).eq("user_id", user.id);
     // --- 4) Signed URLs (private bucket 'scan')
-    const sign = async (path)=>{
+    const sign = async (path: string)=>{
       const { data, error } = await sb.storage.from("scan").createSignedUrl(path, 60 * 10); // 10 min
       if (error || !data?.signedUrl) throw new Error(`sign error: ${path} -> ${error?.message}`);
       return data.signedUrl;
@@ -1073,7 +1073,7 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       console.error("OpenAI returned empty or blank content. Full response:", JSON.stringify(out).slice(0, 500));
       throw new Error("AI analysis returned empty response. Please try again.");
     }
-    let parsed = {};
+    let parsed: Record<string, any> = {};
     try {
       parsed = JSON.parse(text);
     } catch (parseErr) {
@@ -1085,11 +1085,11 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       throw new Error("AI analysis returned incomplete response. Please try again.");
     }
     // --- Sanitize overlays: ensure valid structure, filter nulls/undefined
-    const sanitizeOverlays = (overlays)=>{
+    const sanitizeOverlays = (overlays: Record<string, any>)=>{
       if (!overlays || typeof overlays !== 'object') {
         return {};
       }
-      const result = {};
+      const result: Record<string, Record<string, number[][][]>> = {};
       const views = [
         'front',
         'left',
@@ -1170,7 +1170,7 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
         await sb.from("scan_sessions").update({
           status: "failed"
         }).eq("id", scanId);
-      } catch  {}
+      } catch  { /* scan status update failed, continue */ }
     }
     // --- SECURITY: Log internal error but return generic message to client ---
     // Never expose internal error details to the client (OWASP A09:2021)

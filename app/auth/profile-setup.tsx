@@ -225,7 +225,7 @@ export default function ProfileSetup() {
             {/* Privacy Note */}
             <View className="bg-gray-100 rounded-xl p-4 mb-8">
               <Text className="text-gray-600 text-sm leading-5">
-                🔒 Your information is kept private and secure. It's only used to improve your skin analysis results and is never shared with third parties.
+                🔒 Your information is kept private and secure. It{"'"}s only used to improve your skin analysis results and is never shared with third parties.
               </Text>
             </View>
 

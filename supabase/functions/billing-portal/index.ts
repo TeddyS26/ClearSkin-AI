@@ -16,9 +16,9 @@
  * =============================================================================
  */
 
-// @ts-ignore
+// @ts-expect-error - npm specifier not recognized by tsc
 import { createClient } from "npm:@supabase/supabase-js@2";
-// @ts-ignore
+// @ts-expect-error - npm specifier not recognized by tsc
 import Stripe from "npm:stripe@14";
 
 // Import shared security utilities
@@ -56,7 +56,7 @@ const stripe = new Stripe(STRIPE_SECRET_KEY, {
 // MAIN HANDLER
 // =============================================================================
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin");
   const corsHeaders = getCorsHeaders(origin);
 

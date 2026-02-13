@@ -369,7 +369,7 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
     .replace(/data:/gi, '')           // Remove data: protocol
     .replace(/vbscript:/gi, '')       // Remove vbscript: protocol
     .replace(/on\w+=/gi, '')          // Remove event handlers
-    .replace(/[\x00-\x1F\x7F]/g, '')  // Remove control characters
+    .replace(/[\x00-\x1F\x7F]/g, '')  // eslint-disable-line no-control-regex -- Remove control characters
     .trim();
 }
 
