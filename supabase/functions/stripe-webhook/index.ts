@@ -231,6 +231,7 @@ Deno.serve(async (req: Request) => {
             .upsert({
               user_id: userId,
               stripe_customer_id: customerId,
+              created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             });
 
@@ -294,7 +295,48 @@ Deno.serve(async (req: Request) => {
         const periodStart = new Date((subscription.current_period_start ?? 0) * 1000).toISOString();
         const periodEnd = new Date((subscription.current_period_end ?? 0) * 1000).toISOString();
 
-        // Upsert subscription
+        // For deletion events, try updating the existing record first.
+        // This avoids FK constraint violations if the user was deleted from auth.
+        if (event.type === "customer.subscription.deleted") {
+          const { data: existingSub, error: findError } = await sb
+            .from("subscriptions")
+            .select("id")
+            .eq("stripe_subscription_id", subscription.id)
+            .maybeSingle();
+
+          if (findError) {
+            console.error("❌ Error finding existing subscription:", findError);
+          }
+
+          if (existingSub) {
+            // Update the existing record to canceled
+            const { error: updateError } = await sb
+              .from("subscriptions")
+              .update({
+                status: mappedStatus,
+                current_period_start: periodStart,
+                current_period_end: periodEnd,
+                updated_at: new Date().toISOString()
+              })
+              .eq("stripe_subscription_id", subscription.id);
+
+            if (updateError) {
+              console.error("❌ Error updating subscription to canceled:", updateError);
+              return jsonResponse({
+                error: "Failed to update subscription",
+                details: updateError.message
+              }, 500);
+            }
+
+            console.log("✅ Subscription marked as canceled!");
+          } else {
+            // No existing record - nothing to cancel, just acknowledge
+            console.log("⚠️ No existing subscription record found for deleted subscription:", subscription.id);
+          }
+          break;
+        }
+
+        // For created/updated events, upsert the subscription
         const { error: upsertError } = await sb
           .from("subscriptions")
           .upsert({

@@ -130,7 +130,8 @@ Deno.serve(async (req: Request) => {
         .upsert({
           user_id: user.id,
           stripe_customer_id: customerId,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         });
 
       if (upsertError) {

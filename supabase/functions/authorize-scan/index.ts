@@ -108,6 +108,13 @@ Deno.serve(async (req: Request) => {
       .eq("status", "active")
       .maybeSingle();
 
+    // Verify subscription period hasn't expired
+    // (handles gap between period end and Stripe webhook firing)
+    const isSubscriptionValid = subscription && (
+      !subscription.current_period_end ||
+      new Date(subscription.current_period_end) >= new Date()
+    );
+
     const { data: weeklyScans } = await sb
       .from("scans_this_week")
       .select("scans_count")
@@ -116,7 +123,7 @@ Deno.serve(async (req: Request) => {
 
     const usedScans = weeklyScans?.scans_count ?? 0;
 
-    if (subscription && usedScans < (subscription.weekly_limit ?? 0)) {
+    if (isSubscriptionValid && usedScans < (subscription.weekly_limit ?? 0)) {
       return successResponse({
         allowed: true,
         reason: "subscription",

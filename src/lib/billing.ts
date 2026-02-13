@@ -161,6 +161,7 @@ export function configureLinking() {
 }
 
 // Check if user has an active subscription
+// A subscription is active only if status is "active" AND the current period hasn't expired
 export async function hasActiveSubscription() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
@@ -172,7 +173,18 @@ export async function hasActiveSubscription() {
     .eq("status", "active")
     .maybeSingle();
   
-  return !!sub;
+  if (!sub) return false;
+
+  // Verify the subscription period hasn't expired
+  // (handles the gap between period end and Stripe webhook firing)
+  if (sub.current_period_end) {
+    const periodEnd = new Date(sub.current_period_end);
+    if (periodEnd < new Date()) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // Get user's subscription status details

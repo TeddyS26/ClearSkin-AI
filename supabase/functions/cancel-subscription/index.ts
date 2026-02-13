@@ -181,35 +181,29 @@ serve(async (req) => {
       );
     }
 
-    // --- BUSINESS LOGIC: Cancel Subscription ---
+    // --- BUSINESS LOGIC: Cancel Subscription at Period End ---
     
-    // Cancel the subscription in Stripe
-    const canceledSubscription = await stripe.subscriptions.cancel(subscriptionId);
+    // Mark the subscription to cancel at the end of the current billing period.
+    // The user retains premium access until their paid period expires,
+    // then Stripe fires customer.subscription.deleted and access is revoked.
+    const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true
+    });
 
-    // Update local database record
-    const { error: updateError } = await supabase
-      .from("subscriptions")
-      .update({
-        status: "canceled",
-        updated_at: new Date().toISOString()
-      })
-      .eq("stripe_subscription_id", subscriptionId)
-      .eq("user_id", user.id);
+    // Don't update local DB status to "canceled" yet — the subscription is still
+    // active until the period ends. The stripe-webhook handler will mark it
+    // "canceled" when Stripe fires customer.subscription.deleted at period end.
 
-    if (updateError) {
-      console.error("Failed to update subscription status:", updateError);
-      // Don't fail the request - Stripe cancellation succeeded
-    }
-
-    console.log(`Subscription ${subscriptionId} cancelled for user ${user.id}`);
+    console.log(`Subscription ${subscriptionId} set to cancel at period end for user ${user.id}`);
 
     return successResponse({
       success: true,
-      message: "Subscription cancelled successfully",
+      message: "Subscription will be cancelled at the end of the current billing period",
       subscription: {
-        id: canceledSubscription.id,
-        status: canceledSubscription.status,
-        canceledAt: canceledSubscription.canceled_at
+        id: updatedSubscription.id,
+        status: updatedSubscription.status,
+        cancelAtPeriodEnd: updatedSubscription.cancel_at_period_end,
+        currentPeriodEnd: updatedSubscription.current_period_end
       }
     }, 200, corsHeaders);
 
