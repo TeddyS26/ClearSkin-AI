@@ -107,19 +107,6 @@ export default function PrivacyPolicy() {
             <BulletPoint>Camera permissions (only when you actively use the scan feature)</BulletPoint>
             <BulletPoint>Error logs and crash reports</BulletPoint>
           </Subsection>
-
-          <Subsection title="2.7 Push Notification Data">
-            <Paragraph>
-              If you enable push notifications, we collect:
-            </Paragraph>
-            <BulletPoint>Device push notification token</BulletPoint>
-            <BulletPoint>Notification delivery and interaction data</BulletPoint>
-            <BulletPoint>Scan completion timestamps (to schedule reminders)</BulletPoint>
-            <Paragraph>
-              We use this information to send you notifications about scan completion and periodic reminders 
-              to check your skin health. You can disable notifications at any time through your device settings.
-            </Paragraph>
-          </Subsection>
         </Section>
 
         <Section title="3. How We Use Your Information">
@@ -134,8 +121,6 @@ export default function PrivacyPolicy() {
           <BulletPoint>Manage your monthly free scan allowance (one free scan every 30 days for non-subscribers)</BulletPoint>
           <BulletPoint>Process subscription payments and manage your account</BulletPoint>
           <BulletPoint>Send you important updates about your account or the App</BulletPoint>
-          <BulletPoint>Send push notifications when your scan analysis is complete</BulletPoint>
-          <BulletPoint>Send bi-weekly reminder notifications to encourage regular skin health monitoring</BulletPoint>
           <BulletPoint>Respond to your inquiries and provide customer support through our contact form</BulletPoint>
           <BulletPoint>Process and respond to your contact form submissions</BulletPoint>
           <BulletPoint>Improve our App's features and user experience</BulletPoint>

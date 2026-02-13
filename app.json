@@ -35,14 +35,6 @@
     "plugins": [
       "expo-router",
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#10B981",
-          "sounds": []
-        }
-      ],
-      [
         "@stripe/stripe-react-native",
         {
           "merchantIdentifier": "merchant.com.clearskin.ai",

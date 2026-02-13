@@ -58,8 +58,6 @@ export default function TermsOfService() {
           <BulletPoint>Provide personalized skincare recommendations based on your age and gender</BulletPoint>
           <BulletPoint>Track your skin health progress over time</BulletPoint>
           <BulletPoint>Suggest skincare routines and products</BulletPoint>
-          <BulletPoint>Send push notifications when scan analysis is complete</BulletPoint>
-          <BulletPoint>Send bi-weekly reminder notifications to encourage regular skin health monitoring</BulletPoint>
         </Section>
 
         <Section title="4. Medical Disclaimer and Product Liability">
