@@ -153,8 +153,8 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 50,
+        model: "gpt-5-mini",
+        max_completion_tokens: 50,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -456,6 +456,15 @@ CRITICAL INSTRUCTIONS:
 3. Create detailed, personalized skincare routines based on the SPECIFIC issues you identify in these photos.
 4. Recommend SPECIFIC products tailored to the user's unique skin concerns, not generic categories.
 5. For heatmaps, provide detailed polygon coordinates that accurately map to problem areas on the actual face in each photo.
+
+SCORING CALIBRATION GUIDE - Use the FULL 0-100 range:
+- 90-100: Exceptional - virtually no visible issues, clear and radiant skin
+- 75-89: Good - minor imperfections, generally healthy and well-maintained skin
+- 60-74: Fair - noticeable issues that are manageable with a proper routine
+- 40-59: Below Average - multiple visible concerns needing consistent attention
+- 20-39: Poor - significant issues across multiple categories
+- 0-19: Severe - extensive visible damage/issues, professional consultation recommended
+Do NOT cluster most scores in the 65-85 range. Differentiate clearly based on what you see.
 ${validatedContext ? `6. IMPORTANT: The user has provided additional context about their skin: "${validatedContext}". 
    - Use this context to enhance your analysis, but ALWAYS prioritize visual evidence from photos
    - If context mentions something NOT visible in photos, acknowledge it but explain: "While you mentioned [context], 
@@ -1024,6 +1033,7 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
     ];
     const payload = {
       model: "gpt-5-mini",
+      max_completion_tokens: 16384,
       response_format: {
         type: "json_object"
       },
@@ -1058,11 +1068,21 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
     }
     const out = await ai.json();
     const text = out?.choices?.[0]?.message?.content ?? "{}";
+    console.log(`OpenAI response finish_reason: ${out?.choices?.[0]?.finish_reason}, content length: ${text.length}`);
+    if (!text || text === "{}" || text.trim() === "") {
+      console.error("OpenAI returned empty or blank content. Full response:", JSON.stringify(out).slice(0, 500));
+      throw new Error("AI analysis returned empty response. Please try again.");
+    }
     let parsed = {};
     try {
       parsed = JSON.parse(text);
-    } catch  {
-      parsed = {};
+    } catch (parseErr) {
+      console.error("Failed to parse OpenAI JSON. First 500 chars:", text.slice(0, 500));
+      throw new Error("AI analysis returned invalid response. Please try again.");
+    }
+    if (parsed.skin_score === undefined || parsed.skin_score === null) {
+      console.error("Parsed JSON missing skin_score. Keys found:", Object.keys(parsed).join(", "));
+      throw new Error("AI analysis returned incomplete response. Please try again.");
     }
     // --- Sanitize overlays: ensure valid structure, filter nulls/undefined
     const sanitizeOverlays = (overlays)=>{
