@@ -9,8 +9,7 @@ if (!SUPABASE_URL) {
 }
 const FUNC = `${SUPABASE_URL}/functions/v1`;
 
-// Free scan cooldown period in days
-const FREE_SCAN_COOLDOWN_DAYS = 30;
+// Free scan: one-time per account (no cooldown/reset)
 
 export async function getJwt() {
   const { data } = await supabase.auth.getSession();
@@ -20,10 +19,10 @@ export async function getJwt() {
 }
 
 /**
- * Check if user has used their free scan within the last 30 days
- * Returns true if free scan was used within cooldown period, false otherwise
+ * Check if user has already used their one-time free scan.
+ * Returns true if the free scan has been used, false if still available.
  */
-export async function hasUsedMonthlyFreeScan(): Promise<boolean> {
+export async function hasUsedFreeTrial(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return true; // No user = can't scan anyway
   
@@ -34,33 +33,22 @@ export async function hasUsedMonthlyFreeScan(): Promise<boolean> {
       .eq("user_id", user.id)
       .maybeSingle();
     
-    if (!profile || !profile.free_scan_used_at) {
-      // No free scan used yet
-      return false;
-    }
-    
-    // Check if 30 days have passed since the last free scan
-    const lastUsed = new Date(profile.free_scan_used_at);
-    const now = new Date();
-    const diffTime = now.getTime() - lastUsed.getTime();
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-    
-    // Return true if within cooldown period (scan was used recently)
-    return diffDays < FREE_SCAN_COOLDOWN_DAYS;
+    // Free scan is used if free_scan_used_at has any value
+    return !!(profile?.free_scan_used_at);
   } catch (error) {
-    console.error("Error checking monthly free scan:", error);
+    console.error("Error checking free trial status:", error);
     // Fail open - allow scan if we can't check
     return false;
   }
 }
 
 /**
- * Mark the free scan as used (starts 30-day cooldown)
+ * Mark the one-time free scan as permanently used
  */
-export async function markMonthlyFreeScanUsed(): Promise<void> {
+export async function markFreeTrialUsed(): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    console.error("markMonthlyFreeScanUsed: No user found");
+    console.error("markFreeTrialUsed: No user found");
     return;
   }
   
@@ -85,7 +73,7 @@ export async function markMonthlyFreeScanUsed(): Promise<void> {
       if (updateError) {
         console.error("Error updating free scan used:", updateError);
       } else {
-        console.log("Successfully marked free scan as used (update)");
+        console.log("Successfully marked free trial as used (update)");
       }
     } else {
       // Insert new profile
@@ -98,84 +86,43 @@ export async function markMonthlyFreeScanUsed(): Promise<void> {
         });
       
       if (insertError) {
-        console.error("Error inserting free scan used:", insertError);
+        console.error("Error inserting free trial used:", insertError);
       } else {
-        console.log("Successfully marked free scan as used (insert)");
+        console.log("Successfully marked free trial as used (insert)");
       }
     }
   } catch (error) {
-    console.error("Error marking free scan used:", error);
+    console.error("Error marking free trial used:", error);
   }
 }
 
 /**
- * Check if this scan is a free scan (no subscription, hasn't used monthly free scan)
+ * Check if this scan is a free scan (no subscription, hasn't used one-time free trial)
  */
 export async function isFreeScan(): Promise<boolean> {
   const hasSubscription = await hasActiveSubscription();
   if (hasSubscription) return false;
   
-  const usedFree = await hasUsedMonthlyFreeScan();
+  const usedFree = await hasUsedFreeTrial();
   return !usedFree;
 }
 
 /**
- * Check if user can start a scan (has subscription OR hasn't used monthly free scan)
+ * Check if user can start a scan (has subscription OR hasn't used one-time free trial)
  */
 export async function canScan(): Promise<boolean> {
   const hasSubscription = await hasActiveSubscription();
   if (hasSubscription) return true;
   
-  const usedFree = await hasUsedMonthlyFreeScan();
-  return !usedFree; // Can scan if monthly free scan not used yet
+  const usedFree = await hasUsedFreeTrial();
+  return !usedFree; // Can scan only if free trial not used yet
 }
 
-/**
- * Get the number of days until the next free scan is available (30-day countdown)
- * Returns null if user not found, 0 if free scan is available now
- */
-export async function getDaysUntilFreeReset(): Promise<number | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  
-  try {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("free_scan_used_at")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    
-    if (!profile || !profile.free_scan_used_at) {
-      return 0; // Free scan available now (never used)
-    }
-    
-    // Calculate days since last free scan
-    const lastUsed = new Date(profile.free_scan_used_at);
-    const now = new Date();
-    const diffTime = now.getTime() - lastUsed.getTime();
-    const daysSinceUsed = diffTime / (1000 * 60 * 60 * 24);
-    
-    if (daysSinceUsed >= FREE_SCAN_COOLDOWN_DAYS) {
-      return 0; // Cooldown expired, free scan available
-    }
-    
-    // Calculate remaining days
-    const daysRemaining = Math.ceil(FREE_SCAN_COOLDOWN_DAYS - daysSinceUsed);
-    return daysRemaining;
-  } catch (error) {
-    console.error("Error getting days until free reset:", error);
-    return null;
-  }
-}
-
-// Legacy functions for backwards compatibility
-export async function hasUsedFreeScan(): Promise<boolean> {
-  return hasUsedMonthlyFreeScan();
-}
-
-export async function markFreeScanUsed(): Promise<void> {
-  return markMonthlyFreeScanUsed();
-}
+// Legacy aliases for backwards compatibility
+export const hasUsedFreeScan = hasUsedFreeTrial;
+export const markFreeScanUsed = markFreeTrialUsed;
+export const hasUsedMonthlyFreeScan = hasUsedFreeTrial;
+export const markMonthlyFreeScanUsed = markFreeTrialUsed;
 
 // Get payment sheet parameters for native checkout
 export async function createSubscriptionPayment() {

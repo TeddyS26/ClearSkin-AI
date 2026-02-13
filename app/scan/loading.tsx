@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator, Animated, BackHandler, Pressable, AppSta
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanComplete, isValidScan, deleteScan, getScan } from "../../src/lib/scan";
-import { hasActiveSubscription, markMonthlyFreeScanUsed } from "../../src/lib/billing";
+import { hasActiveSubscription, markFreeTrialUsed } from "../../src/lib/billing";
 import { Sparkles, Upload, Brain, CheckCircle, Camera } from "lucide-react-native";
 
 export default function Loading() {
@@ -34,7 +34,7 @@ export default function Loading() {
               if (isValidScan(row)) {
                 // Mark free scan as used if this is a free tier user
                 if (isFreeTierRef.current) {
-                  await markMonthlyFreeScanUsed();
+                  await markFreeTrialUsed();
                 }
                 router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current, isFreeTier: String(isFreeTierRef.current) } });
               } else {
@@ -123,9 +123,9 @@ export default function Loading() {
             // Mark free scan as used if this is a free tier user
             console.log("Scan complete - isFreeTier:", isFreeTierRef.current);
             if (isFreeTierRef.current) {
-              console.log("Marking free scan as used...");
-              await markMonthlyFreeScanUsed();
-              console.log("Free scan marked as used");
+              console.log("Marking free trial as used...");
+              await markFreeTrialUsed();
+              console.log("Free trial marked as used");
             }
             router.replace({ pathname: "/scan/result", params: { id: scanId, isFreeTier: String(isFreeTierRef.current) } });
           } else {

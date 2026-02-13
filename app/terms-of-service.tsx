@@ -151,7 +151,7 @@ export default function TermsOfService() {
             <Paragraph>
               <Text className="font-semibold">Free Tier:</Text>
             </Paragraph>
-            <BulletPoint>One free skin scan every 30 days</BulletPoint>
+            <BulletPoint>One free trial skin scan per account</BulletPoint>
             <BulletPoint>Limited access to analysis results (overall skin score, basic recommendations)</BulletPoint>
             <BulletPoint>Skin age estimation</BulletPoint>
             <Paragraph>
@@ -165,8 +165,8 @@ export default function TermsOfService() {
             <BulletPoint>Skin age tracking over time</BulletPoint>
             <BulletPoint>Priority customer support</BulletPoint>
             <Paragraph>
-              Free scan usage is tracked per user account. After using your monthly free scan, you must wait 30 days 
-              before the next free scan becomes available, or subscribe to premium for unlimited access.
+              Free scan usage is tracked per user account. Each account receives one free trial scan. After using your 
+              free trial scan, you must subscribe to premium for unlimited access.
             </Paragraph>
           </Subsection>
 

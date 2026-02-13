@@ -11,7 +11,7 @@ function CenterScanButton() {
   const [canStartScan, setCanStartScan] = useState(false);
 
   useEffect(() => {
-    // Check if user can scan (has subscription OR hasn't used free scan)
+    // Check if user can scan (has subscription OR hasn't used free trial)
     async function checkCanScan() {
       const allowed = await canScan();
       setCanStartScan(allowed);

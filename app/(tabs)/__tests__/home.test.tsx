@@ -14,9 +14,8 @@ jest.mock("../../../src/lib/billing", () => ({
   getSubscriptionStatus: jest.fn(),
   openBillingPortal: jest.fn(),
   canScan: jest.fn(),
-  getDaysUntilFreeReset: jest.fn(),
 }));
-import { canScan, getDaysUntilFreeReset } from "../../../src/lib/billing";
+import { canScan } from "../../../src/lib/billing";
 jest.mock("expo-router", () => ({
   useRouter: jest.fn(),
   useFocusEffect: jest.fn(),
@@ -54,7 +53,6 @@ describe("Home", () => {
     });
     (hasActiveSubscription as jest.Mock).mockResolvedValue(false);
     (canScan as jest.Mock).mockResolvedValue(false);
-    (getDaysUntilFreeReset as jest.Mock).mockResolvedValue(null);
     (getRecentCompletedScans as jest.Mock).mockResolvedValue([]);
   });
 

@@ -3,10 +3,10 @@ import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native"
 import { Link, useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings, Calendar } from "lucide-react-native";
+import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings } from "lucide-react-native";
 import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
-import { hasActiveSubscription, canScan, getDaysUntilFreeReset } from "../../src/lib/billing";
+import { hasActiveSubscription, canScan } from "../../src/lib/billing";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -66,7 +66,6 @@ export default function Home() {
   const [hasSubscription, setHasSubscription] = useState(false);
   const [canStartScan, setCanStartScan] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
-  const [daysUntilFreeReset, setDaysUntilFreeReset] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -79,12 +78,6 @@ export default function Home() {
       setHasSubscription(subStatus);
       const scanAllowed = await canScan();
       setCanStartScan(scanAllowed);
-      
-      // Get days until free scan resets (only for non-subscribers)
-      if (!subStatus) {
-        const days = await getDaysUntilFreeReset();
-        setDaysUntilFreeReset(days);
-      }
       
       setCheckingSubscription(false);
     } catch (error) {
@@ -239,7 +232,7 @@ export default function Home() {
             </Pressable>
           )}
 
-          {/* Monthly Free Scan Status Banner */}
+          {/* Free Scan Status Banner */}
           {!checkingSubscription && !hasSubscription && (
             <View className={`rounded-2xl p-4 mb-6 border ${
               canStartScan 
@@ -253,7 +246,7 @@ export default function Home() {
                   {canStartScan ? (
                     <Camera size={22} color="#10B981" strokeWidth={2} />
                   ) : (
-                    <Calendar size={22} color="#6B7280" strokeWidth={2} />
+                    <Lock size={22} color="#6B7280" strokeWidth={2} />
                   )}
                 </View>
                 <View className="flex-1">
@@ -261,17 +254,15 @@ export default function Home() {
                     canStartScan ? "text-emerald-700" : "text-gray-700"
                   }`}>
                     {canStartScan 
-                      ? "Free Scan Available!" 
-                      : "Free Scan Cooling Down"}
+                      ? "Free Trial Available!" 
+                      : "Free Trial Used"}
                   </Text>
                   <Text className={`text-sm ${
                     canStartScan ? "text-emerald-600" : "text-gray-500"
                   }`}>
                     {canStartScan 
-                      ? "You have 1 free limited scan ready" 
-                      : daysUntilFreeReset === 1
-                        ? "Next free scan in 1 day"
-                        : `Next free scan in ${daysUntilFreeReset} days`}
+                      ? "You have 1 free scan to try ClearSkin AI" 
+                      : "Subscribe to unlock unlimited scans"}
                   </Text>
                 </View>
                 {canStartScan ? (
@@ -279,10 +270,12 @@ export default function Home() {
                     <Text className="text-white text-xs font-bold">READY</Text>
                   </View>
                 ) : (
-                  <View className="items-center">
-                    <Text className="text-gray-900 text-2xl font-bold">{daysUntilFreeReset}</Text>
-                    <Text className="text-gray-500 text-xs">days left</Text>
-                  </View>
+                  <Pressable
+                    onPress={() => router.push("/subscribe")}
+                    className="bg-emerald-500 px-3 py-1.5 rounded-full active:opacity-80"
+                  >
+                    <Text className="text-white text-xs font-bold">UPGRADE</Text>
+                  </Pressable>
                 )}
               </View>
             </View>

@@ -75,7 +75,7 @@ export default function PrivacyPolicy() {
             <BulletPoint>Skin condition assessments</BulletPoint>
             <BulletPoint>Estimated skin age and skin age comparison to your actual age</BulletPoint>
             <BulletPoint>Historical scan data and progress tracking</BulletPoint>
-            <BulletPoint>Free scan usage tracking (date of last free scan)</BulletPoint>
+            <BulletPoint>Free scan usage tracking (whether free trial has been used)</BulletPoint>
           </Subsection>
 
           <Subsection title="2.4 Payment Information">
@@ -118,7 +118,7 @@ export default function PrivacyPolicy() {
           <BulletPoint>Estimate your skin age and compare it to your actual age</BulletPoint>
           <BulletPoint>Provide gender-appropriate skincare analysis and recommendations</BulletPoint>
           <BulletPoint>Track your skin health progress over time</BulletPoint>
-          <BulletPoint>Manage your monthly free scan allowance (one free scan every 30 days for non-subscribers)</BulletPoint>
+          <BulletPoint>Manage your one-time free trial scan (one free scan per account for non-subscribers)</BulletPoint>
           <BulletPoint>Process subscription payments and manage your account</BulletPoint>
           <BulletPoint>Send you important updates about your account or the App</BulletPoint>
           <BulletPoint>Respond to your inquiries and provide customer support through our contact form</BulletPoint>

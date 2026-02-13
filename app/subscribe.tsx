@@ -264,7 +264,7 @@ export default function Subscribe() {
                 <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
                   <Check size={16} color="#10B981" strokeWidth={3} />
                 </View>
-                <Text className="text-base text-gray-700 flex-1">1 free limited scan per month</Text>
+                <Text className="text-base text-gray-700 flex-1">1 free trial scan per account</Text>
               </View>
 
               <View className="flex-row items-center">

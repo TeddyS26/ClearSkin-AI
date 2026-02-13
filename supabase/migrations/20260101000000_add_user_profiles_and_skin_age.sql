@@ -41,7 +41,7 @@ ADD COLUMN IF NOT EXISTS skin_age_confidence INT;
 -- skin_age_confidence: Confidence level 0-100 of the skin age estimate
 
 -- ============================================
--- 3. Add monthly free scan tracking columns
+-- 3. Add free scan tracking columns (one-time free trial per account)
 -- ============================================
 ALTER TABLE public.user_profiles
 ADD COLUMN IF NOT EXISTS free_scan_used_at TIMESTAMPTZ,

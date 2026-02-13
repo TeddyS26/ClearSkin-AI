@@ -66,7 +66,7 @@ ClearSkin AI is a **production-ready mobile application** that uses artificial i
 ### 💳 **Monetization & Business Logic**
 - **Stripe Integration**: Professional payment processing with Apple Pay/Google Pay
 - **Subscription Management**: Automated billing with Stripe billing portal
-- **Freemium Model**: 30-day free scan cooldown with premium unlimited ($3.33 USD/month)
+- **Freemium Model**: One free trial scan per account with premium unlimited ($3.33 USD/month)
 - **User Retention**: Progress tracking, skin age comparison, and personalized recommendations
 
 ## 🛠️ **Technical Architecture**
