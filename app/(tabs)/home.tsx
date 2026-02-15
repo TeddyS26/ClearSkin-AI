@@ -503,6 +503,11 @@ export default function Home() {
               )}
             </View>
           )}
+
+          {/* Medical Disclaimer */}
+          <Text className="text-xs text-gray-400 text-center mt-6 mb-2">
+            This is not medical advice. Consult a healthcare professional for diagnosis or treatment.
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
