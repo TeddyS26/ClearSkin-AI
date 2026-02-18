@@ -39,5 +39,4 @@ jobs:
 
       - name: 🚑 Run Expo Doctor Checks
         run: npx expo-doctor@latest
-        continue-on-error: true
 
