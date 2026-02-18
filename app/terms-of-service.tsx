@@ -24,7 +24,7 @@ export default function TermsOfService() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: January 1, 2026
+          Last Updated: February 18, 2026
         </Text>
 
         <Section title="1. Acceptance of Terms">
@@ -590,7 +590,7 @@ export default function TermsOfService() {
             <BulletPoint>You waive any right to participate in international class actions</BulletPoint>
           </Subsection>
 
-          <Subsection title="16.3 Limitation Period">
+          <Subsection title="16.6 Limitation Period">
             <Paragraph>
               Any claim or cause of action arising from these Terms or your use of the App must be commenced within one (1) year 
               after the claim or cause of action arose, or it shall be forever barred.
@@ -621,26 +621,26 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="19. General Provisions">
-          <Subsection title="18.1 Entire Agreement">
+          <Subsection title="19.1 Entire Agreement">
             <Paragraph>
               These Terms, together with our Privacy Policy, constitute the entire agreement between you and ClearSkin AI 
               regarding the App.
             </Paragraph>
           </Subsection>
 
-          <Subsection title="18.2 Severability">
+          <Subsection title="19.2 Severability">
             <Paragraph>
               If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions will remain in full force and effect.
             </Paragraph>
           </Subsection>
 
-          <Subsection title="18.3 Waiver">
+          <Subsection title="19.3 Waiver">
             <Paragraph>
               Our failure to enforce any right or provision of these Terms will not constitute a waiver of such right or provision.
             </Paragraph>
           </Subsection>
 
-          <Subsection title="18.4 Assignment">
+          <Subsection title="19.4 Assignment">
             <Paragraph>
               You may not assign or transfer these Terms or your account without our prior written consent. 
               We may assign these Terms to any successor or affiliate.

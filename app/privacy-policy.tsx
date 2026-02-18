@@ -24,7 +24,7 @@ export default function PrivacyPolicy() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: January 1, 2026
+          Last Updated: February 18, 2026
         </Text>
 
         <Section title="1. Introduction">

@@ -260,4 +260,4 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 - 📧 **Email**: contact@clearskinai.ca
 - 📱 **In-App Support**: Contact form available in settings
-- 🌐 **Website**: [clearskinai.ca](https://clearskinai.ca)
+- 🌐 **Website**: [clearskinai.ca](https://www.clearskinai.ca/)
