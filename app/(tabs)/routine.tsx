@@ -5,12 +5,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { latestCompletedScan } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { Sun, Moon, CheckCircle2, Sparkles } from "lucide-react-native";
+import { canScan, hasActiveSubscription } from "../../src/lib/billing";
+import { Sun, Moon, CheckCircle2, Sparkles, Lock, Crown } from "lucide-react-native";
 
 export default function Routine() {
   const [row, setRow] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false);
   const router = useRouter();
   const { user } = useAuth();
 
@@ -18,6 +20,8 @@ export default function Routine() {
     try {
       const r = await latestCompletedScan();
       setRow(r);
+      const subStatus = await hasActiveSubscription();
+      setHasSubscription(subStatus);
     } catch (error) {
       // Error fetching latest scan
     }
@@ -84,11 +88,45 @@ export default function Routine() {
           Complete a scan to get your personalized skincare routine.
         </Text>
         <Pressable 
-          onPress={() => router.push("/scan/capture")} 
+          onPress={async () => {
+            const allowed = await canScan();
+            router.push(allowed ? "/scan/capture" : "/subscribe");
+          }} 
           className="bg-emerald-500 px-8 py-4 rounded-2xl active:opacity-90 shadow-sm"
           android_ripple={{ color: "#059669" }}
         >
           <Text className="text-white font-bold text-base">Start a Scan</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  // Free tier users see locked content even if they have a scan
+  if (!hasSubscription) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center p-6 bg-emerald-50" edges={["top"]}>
+        <View className="bg-gray-100 p-6 rounded-full mb-6">
+          <Lock size={48} color="#9CA3AF" strokeWidth={1.5} />
+        </View>
+        <Text className="text-xl font-semibold text-gray-900 mb-2">Routine Locked</Text>
+        <Text className="text-gray-600 text-center mb-6 text-base px-8">
+          Subscribe to unlock your personalized AM &amp; PM skincare routines.
+        </Text>
+        <View className="rounded-2xl p-5 mb-6 w-full" style={{ backgroundColor: '#10B981' }}>
+          <View className="flex-row items-center mb-2">
+            <Crown size={20} color="#FFF" strokeWidth={2} />
+            <Text className="text-lg font-bold text-white ml-2">Premium Feature</Text>
+          </View>
+          <Text className="text-white/90 text-sm">
+            Get detailed morning and evening routines tailored to your skin analysis.
+          </Text>
+        </View>
+        <Pressable 
+          onPress={() => router.push("/subscribe")} 
+          className="bg-emerald-500 px-8 py-4 rounded-2xl active:opacity-90 shadow-sm"
+          android_ripple={{ color: "#059669" }}
+        >
+          <Text className="text-white font-bold text-base">Subscribe Now</Text>
         </Pressable>
       </SafeAreaView>
     );

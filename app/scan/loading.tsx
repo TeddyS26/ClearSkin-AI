@@ -3,31 +3,22 @@ import { View, Text, ActivityIndicator, Animated, BackHandler, Pressable, AppSta
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanComplete, isValidScan, deleteScan, getScan } from "../../src/lib/scan";
-import { requestNotificationPermissions, notifyScanComplete, scheduleScanReminder } from "../../src/lib/notifications";
-import { Sparkles, Upload, Brain, CheckCircle, Camera, BellRing } from "lucide-react-native";
+import { hasActiveSubscription, markFreeTrialUsed } from "../../src/lib/billing";
+import { Sparkles, Upload, Brain, CheckCircle, Camera } from "lucide-react-native";
 
 export default function Loading() {
   const { front, left, right, context } = useLocalSearchParams<{ front: string; left: string; right: string; context?: string }>();
   const [msg, setMsg] = useState("Starting…");
   const [err, setErr] = useState<string | null>(null);
   const [isInvalidScan, setIsInvalidScan] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const router = useRouter();
   const [pulseAnim] = useState(new Animated.Value(1));
   
-  // Track the scan ID and app state for background handling
+  // Track the scan ID, free tier status, and app state for background handling
   const scanIdRef = useRef<string | null>(null);
+  const isFreeTierRef = useRef<boolean>(false);
   const appState = useRef(AppState.currentState);
   const processingComplete = useRef(false);
-
-  // Request notification permissions on mount
-  useEffect(() => {
-    (async () => {
-      const granted = await requestNotificationPermissions();
-      setNotificationsEnabled(granted);
-    })();
-  }, []);
 
   // Handle app state changes (foreground/background)
   useEffect(() => {
@@ -41,7 +32,11 @@ export default function Loading() {
             if (row.status === "complete") {
               processingComplete.current = true;
               if (isValidScan(row)) {
-                router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current } });
+                // Mark free scan as used if this is a free tier user
+                if (isFreeTierRef.current) {
+                  await markFreeTrialUsed();
+                }
+                router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current, isFreeTier: String(isFreeTierRef.current) } });
               } else {
                 try {
                   await deleteScan(scanIdRef.current);
@@ -101,6 +96,11 @@ export default function Loading() {
       if (processingComplete.current) return;
       
       try {
+        // Check if user is on free tier (no subscription)
+        const hasSubscription = await hasActiveSubscription();
+        isFreeTierRef.current = !hasSubscription;
+        console.log("Scan loading - hasSubscription:", hasSubscription, "isFreeTier:", isFreeTierRef.current);
+        
         setMsg("Creating session…");
         const { scanId, userId } = await createScanSession();
         scanIdRef.current = scanId;
@@ -109,7 +109,6 @@ export default function Loading() {
         const paths = await uploadThreePhotos(scanId, userId, { front: front!, left: left!, right: right! });
 
         setMsg("Analyzing your skin…");
-        setIsAnalyzing(true);
         await callAnalyzeFunction(scanId, paths, context?.trim() || undefined);
 
         setMsg("Finishing up…");
@@ -121,13 +120,14 @@ export default function Loading() {
         if (row.status === "complete") {
           // Check if the scan has valid face detection
           if (isValidScan(row)) {
-            // Schedule bi-weekly reminder for next scan
-            await scheduleScanReminder();
-            // Send notification if app is in background
-            if (appState.current !== 'active') {
-              await notifyScanComplete(scanId, true);
+            // Mark free scan as used if this is a free tier user
+            console.log("Scan complete - isFreeTier:", isFreeTierRef.current);
+            if (isFreeTierRef.current) {
+              console.log("Marking free trial as used...");
+              await markFreeTrialUsed();
+              console.log("Free trial marked as used");
             }
-            router.replace({ pathname: "/scan/result", params: { id: scanId } });
+            router.replace({ pathname: "/scan/result", params: { id: scanId, isFreeTier: String(isFreeTierRef.current) } });
           } else {
             // Invalid scan - no face detected, delete the scan record
             try {
@@ -135,22 +135,13 @@ export default function Loading() {
             } catch {
               // Ignore delete errors
             }
-            if (appState.current !== 'active') {
-              await notifyScanComplete(scanId, false);
-            }
             setIsInvalidScan(true);
             setErr("We couldn't detect a face in your photos. Please make sure your face is clearly visible and well-lit, then try again.");
           }
         } else {
-          if (appState.current !== 'active') {
-            await notifyScanComplete(scanId, false);
-          }
           setErr("Analysis failed. Please try again.");
         }
       } catch (e: any) {
-        if (appState.current !== 'active' && scanIdRef.current) {
-          await notifyScanComplete(scanIdRef.current, false);
-        }
         setErr(e.message ?? String(e));
       }
     })();
@@ -195,22 +186,7 @@ export default function Loading() {
             </Text>
           </View>
           
-          {/* Background notification info */}
-          {isAnalyzing && (
-            <View className="bg-white/80 rounded-2xl p-4 mx-4 border border-emerald-100">
-              <View className="flex-row items-center gap-3 mb-2">
-                <BellRing size={20} color="#10B981" />
-                <Text className="text-sm font-semibold text-gray-800">
-                  Feel free to leave the app
-                </Text>
-              </View>
-              <Text className="text-sm text-gray-600 leading-5">
-                {notificationsEnabled 
-                  ? "We'll send you a notification when your analysis is ready!"
-                  : "Your analysis will continue in the background. Check back in a minute!"}
-              </Text>
-            </View>
-          )}
+
         </View>
       )}
 

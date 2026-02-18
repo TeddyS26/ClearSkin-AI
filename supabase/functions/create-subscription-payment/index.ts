@@ -1,37 +1,119 @@
-// supabase/functions/create-subscription-payment/index.ts
-// @ts-ignore
+/**
+ * =============================================================================
+ * CLEARSKIN AI - CREATE SUBSCRIPTION PAYMENT ENDPOINT
+ * =============================================================================
+ * 
+ * Creates a Stripe subscription with payment collection using Payment Intents.
+ * Returns client secret for in-app payment sheet integration.
+ * 
+ * Security measures:
+ * - Rate limiting (IP + user-based)
+ * - JWT token validation
+ * - CORS protection
+ * - Environment variable validation
+ * 
+ * @version 2.0.0
+ * =============================================================================
+ */
+
+// @ts-expect-error - npm specifier not recognized by tsc
 import { createClient } from "npm:@supabase/supabase-js@2";
-// @ts-ignore
+// @ts-expect-error - npm specifier not recognized by tsc
 import Stripe from "npm:stripe@14";
-const sb = createClient(Deno.env.get("PROJECT_URL"), Deno.env.get("SERVICE_ROLE_KEY"));
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY_TEST"), {
+
+// Import shared security utilities
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  validateContentLength,
+  requireEnv,
+  successResponse,
+  errorResponse
+} from "../_shared/security.ts";
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+// --- SECURITY: Fail fast if any required secret is missing (OWASP A05:2021) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY_TEST");
+const STRIPE_PRICE_ID = requireEnv("STRIPE_PRICE_UNLIMITED_TEST");
+
+// Initialize clients
+const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20"
 });
-function j(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-}
-Deno.serve(async (req)=>{
-  if (req.method !== "POST") return j({
-    error: "Method not allowed"
-  }, 405);
+
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
+
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  // Only allow POST method
+  if (req.method !== "POST") {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
+  }
+
+  // --- SECURITY: Reject oversized payloads (max 10KB for this endpoint) ---
+  const sizeCheck = validateContentLength(req, 10 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
+
   try {
+    // --- SECURITY: Authentication ---
     const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return j({
-      error: "Unauthorized"
-    }, 401);
+    if (!auth?.startsWith("Bearer ")) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
     const token = auth.split(" ")[1];
-    const { data: { user } } = await sb.auth.getUser(token);
-    if (!user) return j({
-      error: "Unauthorized"
-    }, 401);
-    // Ensure we have/make a Stripe customer
-    let { data: bc } = await sb.from("billing_customers").select("*").eq("user_id", user.id).maybeSingle();
-    let customerId = bc?.stripe_customer_id;
+    const { data: { user }, error: authError } = await sb.auth.getUser(token);
+    
+    if (authError || !user) {
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', error: authError?.message });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
+    // --- SECURITY: Rate Limiting (IP + User) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.standard, clientIP);
+    
+    if (rateLimit.limited) {
+      logSecurityEvent('rate_limit_exceeded', { 
+        userId: user.id, 
+        ip: clientIP,
+        endpoint: 'create-subscription-payment'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+
+    // --- BUSINESS LOGIC: Create Subscription with Payment Intent ---
+
+    // Get or create Stripe customer
+    let { data: billingCustomer } = await sb
+      .from("billing_customers")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    let customerId = billingCustomer?.stripe_customer_id;
+
+    // Create new Stripe customer if needed
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
@@ -39,51 +121,99 @@ Deno.serve(async (req)=>{
           supabase_user_id: user.id
         }
       });
+      
       customerId = customer.id;
-      await sb.from("billing_customers").upsert({
-        user_id: user.id,
-        stripe_customer_id: customerId
-      });
+
+      // Store customer mapping
+      const { error: upsertError } = await sb
+        .from("billing_customers")
+        .upsert({
+          user_id: user.id,
+          stripe_customer_id: customerId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (upsertError) {
+        console.error("Failed to store billing customer:", upsertError);
+        // Continue - customer was created in Stripe
+      }
     }
-    const price = Deno.env.get("STRIPE_PRICE_UNLIMITED_TEST");
-    // Create a subscription with payment behavior to collect payment method first
+
+    // Check if user already has an active subscription to prevent duplicates
+    const { data: existingSubs } = await sb
+      .from("subscriptions")
+      .select("stripe_subscription_id, status, current_period_end")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1);
+
+    if (existingSubs && existingSubs.length > 0) {
+      const activeSub = existingSubs[0];
+      // Verify it's not expired
+      const isStillActive = !activeSub.current_period_end || 
+        new Date(activeSub.current_period_end) >= new Date();
+      
+      if (isStillActive) {
+        return errorResponse(
+          "You already have an active subscription. Manage it from Settings.",
+          409,
+          "ALREADY_SUBSCRIBED",
+          corsHeaders
+        );
+      }
+    }
+
+    // Create subscription with incomplete payment (collects payment method first)
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
-      items: [
-        {
-          price
-        }
-      ],
+      items: [{ price: STRIPE_PRICE_ID }],
       payment_behavior: 'default_incomplete',
       payment_settings: {
-        payment_method_types: [
-          'card'
-        ],
+        payment_method_types: ['card'],
         save_default_payment_method: 'on_subscription'
       },
-      expand: [
-        'latest_invoice.payment_intent'
-      ],
+      expand: ['latest_invoice.payment_intent'],
       metadata: {
         supabase_user_id: user.id
       }
     });
-    const invoice = subscription.latest_invoice;
-    const paymentIntent = invoice.payment_intent;
-    return j({
+
+    // Extract payment intent from subscription
+    const invoice = subscription.latest_invoice as Stripe.Invoice;
+    const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
+
+    // Create ephemeral key for Stripe SDK
+    const ephemeralKey = await stripe.ephemeralKeys.create(
+      { customer: customerId },
+      { apiVersion: '2024-06-20' }
+    );
+
+    return successResponse({
       paymentIntent: paymentIntent.client_secret,
       subscriptionId: subscription.id,
       customerId: customerId,
-      ephemeralKey: (await stripe.ephemeralKeys.create({
-        customer: customerId
-      }, {
-        apiVersion: '2024-06-20'
-      })).secret
-    });
-  } catch (e) {
-    console.error("Error:", e);
-    return j({
-      error: String(e)
-    }, 500);
+      ephemeralKey: ephemeralKey.secret
+    }, 200, corsHeaders);
+
+  } catch (error) {
+    console.error("create-subscription-payment error:", error);
+    
+    // Handle Stripe-specific errors
+    if (error instanceof Stripe.errors.StripeError) {
+      return errorResponse(
+        "Payment service error. Please try again later.",
+        502,
+        "STRIPE_ERROR",
+        corsHeaders
+      );
+    }
+
+    return errorResponse(
+      "An error occurred while creating the subscription",
+      500,
+      "INTERNAL_ERROR",
+      corsHeaders
+    );
   }
 });

@@ -1,63 +1,214 @@
-// @ts-ignore errors about "npm:" imports in Supabase editor
+/**
+ * =============================================================================
+ * CLEARSKIN AI - SIGN STORAGE URLS ENDPOINT
+ * =============================================================================
+ * 
+ * Creates signed URLs for private storage bucket access.
+ * Users can only access files in their own folder (user/{user_id}/...).
+ * 
+ * Security measures:
+ * - Rate limiting (IP + user-based)
+ * - JWT token validation
+ * - CORS protection
+ * - Path traversal prevention
+ * - User folder isolation
+ * - Input validation
+ * 
+ * @version 2.0.0
+ * =============================================================================
+ */
+
+// @ts-expect-error errors about "npm:" imports in Supabase editor
 import { createClient } from "npm:@supabase/supabase-js@2";
-const sb = createClient(Deno.env.get("PROJECT_URL"), Deno.env.get("SERVICE_ROLE_KEY"));
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-}
-function normalize(path) {
-  // strip any leading slash so storage path matches 'user/<uid>/...'
+
+// Import shared security utilities
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  validateRequestBody,
+  validateUserPath,
+  validateContentLength,
+  requireEnv,
+  successResponse,
+  errorResponse
+} from "../_shared/security.ts";
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+// --- SECURITY: Fail fast if required secrets are missing (OWASP A05:2021) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+
+// Initialize Supabase client with service role
+const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+
+// Signed URL expiration time (5 minutes)
+const SIGNED_URL_EXPIRY_SECONDS = 60 * 5;
+
+// Maximum paths per request
+const MAX_PATHS_PER_REQUEST = 10;
+
+// =============================================================================
+// REQUEST BODY SCHEMA
+// =============================================================================
+
+const requestSchema = {
+  paths: {
+    type: 'array' as const,
+    required: true,
+    minLength: 1,
+    maxLength: MAX_PATHS_PER_REQUEST
+  }
+};
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Normalize storage path (remove leading slash)
+ */
+function normalizePath(path: string): string {
   return path.startsWith("/") ? path.slice(1) : path;
 }
-Deno.serve(async (req)=>{
+
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
+
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  // Only allow POST method
+  if (req.method !== "POST") {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
+  }
+
+  // --- SECURITY: Reject oversized payloads (max 50KB for path arrays) ---
+  const sizeCheck = validateContentLength(req, 50 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
+
   try {
-    if (req.method !== "POST") return new Response("Method Not Allowed", {
-      status: 405
-    });
-    // Auth
+    // --- SECURITY: Authentication ---
     const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return new Response("Unauthorized", {
-      status: 401
-    });
+    if (!auth?.startsWith("Bearer ")) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
     const token = auth.split(" ")[1];
-    const { data: { user }, error } = await sb.auth.getUser(token);
-    if (error || !user) return new Response("Unauthorized", {
-      status: 401
-    });
-    // Body
-    const body = await req.json().catch(()=>({}));
-    const paths = Array.isArray(body.paths) ? body.paths : null;
-    if (!paths || paths.length === 0) return json({
-      results: []
-    });
-    // Only sign files in the caller's own folder: user/<uid>/...
-    const results = await Promise.all(paths.map(async (raw)=>{
-      const p = normalize(raw);
-      const allowed = p.startsWith(`user/${user.id}/`);
-      if (!allowed) return {
-        path: raw,
-        url: null
-      };
-      const { data, error } = await sb.storage.from("scan").createSignedUrl(p, 60 * 5);
-      if (error || !data?.signedUrl) return {
-        path: raw,
-        url: null
-      };
-      return {
-        path: raw,
-        url: data.signedUrl
-      };
-    }));
-    return json({
-      results
-    });
-  } catch (e) {
-    return json({
-      error: String(e)
-    }, 500);
+    const { data: { user }, error: authError } = await sb.auth.getUser(token);
+    
+    if (authError || !user) {
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', error: authError?.message });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
+    // --- SECURITY: Rate Limiting (IP + User) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.read, clientIP);
+    
+    if (rateLimit.limited) {
+      logSecurityEvent('rate_limit_exceeded', { 
+        userId: user.id, 
+        ip: clientIP,
+        endpoint: 'sign-storage-urls'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+
+    // --- SECURITY: Parse and Validate Request Body ---
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400, "INVALID_JSON", corsHeaders);
+    }
+
+    const validation = validateRequestBody(body, requestSchema);
+    if (!validation.valid) {
+      logSecurityEvent('validation_failed', { 
+        userId: user.id, 
+        errors: validation.errors,
+        endpoint: 'sign-storage-urls'
+      });
+      return errorResponse(
+        `Validation failed: ${validation.errors.join(', ')}`,
+        400,
+        "VALIDATION_ERROR",
+        corsHeaders
+      );
+    }
+
+    const paths = validation.sanitized.paths as string[];
+
+    // Validate each path is a string
+    if (!paths.every(p => typeof p === 'string' && p.length > 0 && p.length < 500)) {
+      return errorResponse(
+        "Invalid path format in request",
+        400,
+        "INVALID_PATHS",
+        corsHeaders
+      );
+    }
+
+    // --- BUSINESS LOGIC: Sign URLs ---
+    const results = await Promise.all(
+      paths.map(async (rawPath) => {
+        const normalizedPath = normalizePath(rawPath);
+
+        // --- SECURITY: Validate path belongs to user ---
+        const pathValidation = validateUserPath(normalizedPath, user.id);
+        
+        if (!pathValidation.valid) {
+          logSecurityEvent('unauthorized_access', {
+            userId: user.id,
+            path: rawPath,
+            reason: pathValidation.error
+          });
+          return { path: rawPath, url: null, error: "Access denied" };
+        }
+
+        // Create signed URL
+        try {
+          const { data, error } = await sb.storage
+            .from("scan")
+            .createSignedUrl(pathValidation.sanitized as string, SIGNED_URL_EXPIRY_SECONDS);
+
+          if (error || !data?.signedUrl) {
+            console.error(`Failed to sign URL for path ${rawPath}:`, error);
+            return { path: rawPath, url: null, error: "Failed to sign URL" };
+          }
+
+          return { path: rawPath, url: data.signedUrl };
+        } catch (error) {
+          console.error(`Error signing URL for path ${rawPath}:`, error);
+          return { path: rawPath, url: null, error: "Internal error" };
+        }
+      })
+    );
+
+    return successResponse({ results }, 200, corsHeaders);
+
+  } catch (error) {
+    console.error("sign-storage-urls error:", error);
+    return errorResponse(
+      "An error occurred while signing storage URLs",
+      500,
+      "INTERNAL_ERROR",
+      corsHeaders
+    );
   }
 });

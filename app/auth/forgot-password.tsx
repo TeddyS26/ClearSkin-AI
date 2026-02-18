@@ -84,7 +84,7 @@ export default function ForgotPassword() {
               </View>
               <Text className="text-2xl font-bold text-gray-900 mb-2">Check your email</Text>
               <Text className="text-gray-600 text-center leading-6">
-                We've sent a password reset link to{" "}
+                We{"'"}ve sent a password reset link to{" "}
                 <Text className="font-semibold text-gray-900">{email}</Text>
               </Text>
             </View>
@@ -93,12 +93,12 @@ export default function ForgotPassword() {
               <View className="bg-emerald-50 rounded-2xl p-4">
                 <View className="flex-row items-center mb-2">
                   <CheckCircle size={20} color="#10B981" />
-                  <Text className="text-emerald-800 font-semibold ml-2">What's next?</Text>
+                    <Text className="text-emerald-800 font-semibold ml-2">What{"'"}s next?</Text>
                 </View>
                 <Text className="text-emerald-700 text-sm leading-5">
                   1. Open the email we just sent{"\n"}
-                  2. Tap the "Reset Password" button{"\n"}
-                  3. You'll be redirected back to the app
+                    2. Tap the {"\"Reset Password\""} button{"\n"}
+                    3. You{"'"}ll be redirected back to the app
                 </Text>
               </View>
 
@@ -156,7 +156,7 @@ export default function ForgotPassword() {
               </View>
               <Text className="text-2xl font-bold text-gray-900 mb-2">Forgot Password?</Text>
               <Text className="text-gray-600 text-center leading-6">
-                No worries! Enter your email address and we'll send you a link to reset your password.
+                No worries! Enter your email address and we{"'"}ll send you a link to reset your password.
               </Text>
             </View>
 

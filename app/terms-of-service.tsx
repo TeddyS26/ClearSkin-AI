@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import React from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,7 +24,7 @@ export default function TermsOfService() {
 
       <ScrollView className="flex-1 px-5 py-6">
         <Text className="text-gray-600 text-sm mb-6">
-          Last Updated: December 20, 2025
+          Last Updated: February 18, 2026
         </Text>
 
         <Section title="1. Acceptance of Terms">
@@ -54,11 +55,10 @@ export default function TermsOfService() {
           </Paragraph>
           <BulletPoint>Analyze photographs of your skin</BulletPoint>
           <BulletPoint>Identify potential skin conditions and concerns</BulletPoint>
-          <BulletPoint>Provide personalized skincare recommendations</BulletPoint>
+          <BulletPoint>Estimate your skin age and compare it to your actual age</BulletPoint>
+          <BulletPoint>Provide personalized skincare recommendations based on your age and gender</BulletPoint>
           <BulletPoint>Track your skin health progress over time</BulletPoint>
           <BulletPoint>Suggest skincare routines and products</BulletPoint>
-          <BulletPoint>Send push notifications when scan analysis is complete</BulletPoint>
-          <BulletPoint>Send bi-weekly reminder notifications to encourage regular skin health monitoring</BulletPoint>
         </Section>
 
         <Section title="4. Medical Disclaimer and Product Liability">
@@ -116,7 +116,13 @@ export default function TermsOfService() {
             </Paragraph>
             <BulletPoint>A valid email address</BulletPoint>
             <BulletPoint>A secure password</BulletPoint>
-            <BulletPoint>Optional profile information</BulletPoint>
+            <BulletPoint>Your date of birth (required for new accounts)</BulletPoint>
+            <BulletPoint>Your gender (required for new accounts)</BulletPoint>
+            <Paragraph>
+              New users are required to provide their date of birth and gender during account setup. This demographic 
+              information is used to personalize your skin analysis, including skin age estimation and gender-appropriate 
+              recommendations. Once provided, this information cannot be changed to ensure consistent and accurate analysis results.
+            </Paragraph>
           </Subsection>
 
           <Subsection title="5.2 Account Security">
@@ -141,13 +147,28 @@ export default function TermsOfService() {
         <Section title="6. Subscriptions and Payments">
           <Subsection title="6.1 Free and Premium Features">
             <Paragraph>
-              The App offers both free and premium subscription features. Premium features include:
+              The App offers both free and premium subscription features:
+            </Paragraph>
+            <Paragraph>
+              <Text className="font-semibold">Free Tier:</Text>
+            </Paragraph>
+            <BulletPoint>One free trial skin scan per account</BulletPoint>
+            <BulletPoint>Limited access to analysis results (overall skin score, basic recommendations)</BulletPoint>
+            <BulletPoint>Skin age estimation</BulletPoint>
+            <Paragraph>
+              <Text className="font-semibold">Premium Subscription:</Text>
             </Paragraph>
             <BulletPoint>Unlimited skin scans and analyses</BulletPoint>
+            <BulletPoint>Full access to detailed analysis results and breakdowns</BulletPoint>
             <BulletPoint>Advanced AI-powered recommendations</BulletPoint>
             <BulletPoint>Detailed progress tracking and history</BulletPoint>
             <BulletPoint>Personalized skincare routines</BulletPoint>
+            <BulletPoint>Skin age tracking over time</BulletPoint>
             <BulletPoint>Priority customer support</BulletPoint>
+            <Paragraph>
+              Free scan usage is tracked per user account. Each account receives one free trial scan. After using your 
+              free trial scan, you must subscribe to premium for unlimited access.
+            </Paragraph>
           </Subsection>
 
           <Subsection title="6.2 Subscription Pricing and Billing">
@@ -569,7 +590,7 @@ export default function TermsOfService() {
             <BulletPoint>You waive any right to participate in international class actions</BulletPoint>
           </Subsection>
 
-          <Subsection title="16.3 Limitation Period">
+          <Subsection title="16.6 Limitation Period">
             <Paragraph>
               Any claim or cause of action arising from these Terms or your use of the App must be commenced within one (1) year 
               after the claim or cause of action arose, or it shall be forever barred.
@@ -600,26 +621,26 @@ export default function TermsOfService() {
         </Section>
 
         <Section title="19. General Provisions">
-          <Subsection title="18.1 Entire Agreement">
+          <Subsection title="19.1 Entire Agreement">
             <Paragraph>
               These Terms, together with our Privacy Policy, constitute the entire agreement between you and ClearSkin AI 
               regarding the App.
             </Paragraph>
           </Subsection>
 
-          <Subsection title="18.2 Severability">
+          <Subsection title="19.2 Severability">
             <Paragraph>
               If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions will remain in full force and effect.
             </Paragraph>
           </Subsection>
 
-          <Subsection title="18.3 Waiver">
+          <Subsection title="19.3 Waiver">
             <Paragraph>
               Our failure to enforce any right or provision of these Terms will not constitute a waiver of such right or provision.
             </Paragraph>
           </Subsection>
 
-          <Subsection title="18.4 Assignment">
+          <Subsection title="19.4 Assignment">
             <Paragraph>
               You may not assign or transfer these Terms or your account without our prior written consent. 
               We may assign these Terms to any successor or affiliate.

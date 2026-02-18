@@ -23,9 +23,6 @@
       }
     },
     "production": {
-      "ios": {
-        "buildType": "release"
-      },
       "android": {
         "buildType": "app-bundle"
       }
@@ -34,20 +31,14 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "YOUR_APPLE_ID@example.com",
-        "ascAppId": "YOUR_ASC_APP_ID",
+        "appleId": "YOUR_APPLE_ID@icloud.com",
+        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
         "appleTeamId": "YOUR_APPLE_TEAM_ID"
       },
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
+        "track": "production"
       }
-    }
-  },
-  "web": {
-    "production": {
-      "buildCommand": "expo export -p web",
-      "outputDir": "dist"
     }
   }
 }

@@ -25,9 +25,6 @@ jest.mock("expo-router", () => ({
 jest.mock("../../src/ctx/AuthContext", () => ({
   AuthProvider: ({ children }: any) => children,
 }));
-jest.mock("../../src/lib/notifications", () => ({
-  addNotificationResponseListener: jest.fn(() => ({ remove: jest.fn() })),
-}));
 
 describe("RootLayout", () => {
   beforeEach(() => {

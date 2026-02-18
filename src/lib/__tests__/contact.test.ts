@@ -190,32 +190,19 @@ describe('contact.ts', () => {
     });
 
     it('should handle empty subject and message', async () => {
-      mockFetch.mockResolvedValue(mockResponse as any);
+      // --- SECURITY: Empty subject/message should be rejected by client-side validation ---
+      await expect(
+        sendContactMessage(
+          '',
+          '',
+          'user@example.com',
+          'Test User',
+          'mock-token'
+        )
+      ).rejects.toThrow('Subject is required');
 
-      await sendContactMessage(
-        '',
-        '',
-        'user@example.com',
-        'Test User',
-        'mock-token'
-      );
-
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://test.supabase.co/functions/v1/send-contact-email',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer mock-token',
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            subject: '',
-            message: '',
-            userEmail: 'user@example.com',
-            userName: 'Test User',
-          }),
-        }
-      );
+      // Verify fetch was NOT called (validation prevents the request)
+      expect(mockFetch).not.toHaveBeenCalled();
     });
 
     it('should handle special characters in subject and message', async () => {

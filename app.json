@@ -6,16 +6,18 @@
     "web": {
       "bundler": "metro"
     },
-    "linking": {
-      "scheme": "clearskinai",
-      "prefixes": ["clearskinai://"]
-    },
-    "version": "1.0.0",
+    "version": "2.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "splash": { "image": "./assets/splash-icon.png", "resizeMode": "contain", "backgroundColor": "#10B981" },
-    "assetBundlePatterns": ["**/*"],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#10B981"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.clearskin.ai",
@@ -24,20 +26,32 @@
       }
     },
     "android": {
-      "permissions": ["CAMERA"],
-      "package": "com.clearskin.ai"
+      "permissions": [
+        "CAMERA"
+      ],
+      "package": "com.clearskin.ai",
+      "versionCode": 5
     },
     "plugins": [
       "expo-router",
       [
-        "expo-notifications",
+        "@stripe/stripe-react-native",
         {
-          "icon": "./assets/icon.png",
-          "color": "#10B981",
-          "sounds": []
+          "merchantIdentifier": "merchant.com.clearskin.ai",
+          "enableGooglePay": true
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "05dacea1-7feb-4e58-b883-415073689e14"
+      }
+    },
+    "owner": "teddy2s6"
   }
 }

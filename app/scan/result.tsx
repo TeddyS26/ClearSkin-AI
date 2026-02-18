@@ -3,10 +3,11 @@ import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-nati
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getScan } from "../../src/lib/scan";
+import { hasActiveSubscription } from "../../src/lib/billing";
 import { supabase } from "../../src/lib/supabase";
 import HeatmapOverlay from "../../components/HeatmapOverlay";
 import HeatmapLegend from "../../components/HeatmapLegend";
-import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package, ArrowLeft } from "lucide-react-native";
+import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package, ArrowLeft, Lock, Crown, Clock } from "lucide-react-native";
 
 type Mode = "breakouts" | "oiliness" | "dryness" | "redness";
 const MODES: Mode[] = ["breakouts", "oiliness", "dryness", "redness"];
@@ -46,10 +47,11 @@ async function signPhotoPaths(paths: { front?: string | null; left?: string | nu
 }
 
 export default function Result() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, isFreeTier: isFreeTierParam } = useLocalSearchParams<{ id: string; isFreeTier?: string }>();
   const router = useRouter();
   const [row, setRow] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [isFreeTier, setIsFreeTier] = useState(isFreeTierParam === "true");
   const [photoUrls, setPhotoUrls] = useState<{ front: string | null; left: string | null; right: string | null }>({ 
     front: null, 
     left: null, 
@@ -63,6 +65,16 @@ export default function Result() {
       try {
         const r = await getScan(id!);
         setRow(r);
+        
+        // Double-check subscription status
+        const hasSubscription = await hasActiveSubscription();
+        if (!hasSubscription && isFreeTierParam !== "true") {
+          // Check if user has more than 1 completed scan (means they used free trial already)
+          setIsFreeTier(true);
+        } else if (hasSubscription) {
+          setIsFreeTier(false);
+        }
+        
         const urls = await signPhotoPaths({
           front: r.front_path,
           left: r.left_path,
@@ -107,9 +119,31 @@ export default function Result() {
         </Pressable>
 
         <Text className="text-2xl font-bold text-gray-900 mb-1">Your Results</Text>
-        <Text className="text-sm text-gray-600 mb-6">Complete skin analysis and recommendations</Text>
+        <Text className="text-sm text-gray-600 mb-6">
+          {isFreeTier ? "Free trial - Limited preview" : "Complete skin analysis and recommendations"}
+        </Text>
 
-        {/* Overview Card */}
+        {/* Free Tier Upgrade Banner */}
+        {isFreeTier && (
+          <View className="rounded-3xl p-6 mb-4 shadow-sm" style={{ backgroundColor: '#10B981' }}>
+            <View className="flex-row items-center mb-3">
+              <Crown size={24} color="#FFF" strokeWidth={2} />
+              <Text className="text-xl font-bold text-white ml-2">Unlock Full Analysis</Text>
+            </View>
+            <Text className="text-white/90 text-sm mb-4">
+              Subscribe to see detailed conditions, personalized routines, heatmaps, and product recommendations.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/subscribe")}
+              className="bg-white rounded-xl py-3 px-6 self-start active:opacity-80"
+              android_ripple={{ color: "#10B98120" }}
+            >
+              <Text className="text-emerald-600 font-bold text-base">Subscribe Now</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Overview Card - Always visible */}
         <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100">
           <View className="flex-row items-center mb-4">
             <View style={{ marginRight: 8 }}>
@@ -129,19 +163,116 @@ export default function Result() {
                 <Text className="text-sm text-gray-600 mb-1">Potential</Text>
                 <Text className="text-xl font-bold text-gray-900">{row.skin_potential ?? "—"}/100</Text>
               </View>
-              <View className="flex-1 bg-gray-50 p-4 rounded-2xl">
+              {/* Health - locked for free tier */}
+              <View className="flex-1 bg-gray-50 p-4 rounded-2xl relative">
+                {isFreeTier && (
+                  <View className="absolute inset-0 bg-gray-100/90 rounded-2xl items-center justify-center z-10">
+                    <Lock size={20} color="#9CA3AF" />
+                  </View>
+                )}
                 <Text className="text-sm text-gray-600 mb-1">Health</Text>
-                <Text className="text-xl font-bold text-gray-900">{row.skin_health_percent ?? "—"}%</Text>
+                <Text className="text-xl font-bold text-gray-900">{isFreeTier ? "—" : (row.skin_health_percent ?? "—")}%</Text>
               </View>
             </View>
 
-            <View className="bg-gray-50 p-4 rounded-2xl">
+            {/* Skin Type - locked for free tier */}
+            <View className="bg-gray-50 p-4 rounded-2xl relative">
+              {isFreeTier && (
+                <View className="absolute inset-0 bg-gray-100/90 rounded-2xl items-center justify-center z-10">
+                  <Lock size={20} color="#9CA3AF" />
+                </View>
+              )}
               <Text className="text-sm text-gray-600 mb-1">Skin Type</Text>
-              <Text className="text-base font-semibold text-gray-900 capitalize">{row.skin_type ?? "unknown"}</Text>
+              <Text className="text-base font-semibold text-gray-900 capitalize">{isFreeTier ? "—" : (row.skin_type ?? "unknown")}</Text>
             </View>
           </View>
         </View>
 
+        {/* Skin Age Card - New Feature */}
+        {row.skin_age != null && (
+          <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100 relative">
+            {isFreeTier && (
+              <View className="absolute inset-0 bg-white/90 rounded-3xl items-center justify-center z-10">
+                <Lock size={28} color="#9CA3AF" />
+                <Text className="text-gray-500 font-semibold mt-2">Subscribe to unlock</Text>
+              </View>
+            )}
+            <View className="flex-row items-center mb-4">
+              <View style={{ marginRight: 8 }}>
+                <Clock size={24} color="#10B981" strokeWidth={2} />
+              </View>
+              <Text className="text-xl font-bold text-gray-900">Skin Age</Text>
+            </View>
+            
+            <View className="items-center py-4">
+              <View className="bg-emerald-50 rounded-full w-28 h-28 items-center justify-center mb-3">
+                <Text className="text-4xl font-bold text-emerald-600">{isFreeTier ? "?" : row.skin_age}</Text>
+                <Text className="text-sm text-emerald-700">years</Text>
+              </View>
+              
+              {!isFreeTier && !!row.skin_age_comparison && (
+                <View className={`px-4 py-2 rounded-full ${
+                  row.skin_age_comparison.includes('younger') 
+                    ? 'bg-emerald-100' 
+                    : row.skin_age_comparison.includes('older')
+                    ? 'bg-amber-100'
+                    : 'bg-gray-100'
+                }`}>
+                  <Text className={`text-sm font-medium ${
+                    row.skin_age_comparison.includes('younger')
+                      ? 'text-emerald-700'
+                      : row.skin_age_comparison.includes('older')
+                      ? 'text-amber-700'
+                      : 'text-gray-700'
+                  }`}>
+                    {row.skin_age_comparison}
+                  </Text>
+                </View>
+              )}
+              
+              {!isFreeTier && row.skin_age_confidence != null && (
+                <Text className="text-xs text-gray-500 mt-3">
+                  Confidence: {row.skin_age_confidence}%
+                </Text>
+              )}
+            </View>
+            
+            {!isFreeTier && (
+              <View className="bg-gray-50 rounded-xl p-3 mt-2">
+                <Text className="text-xs text-gray-600 text-center">
+                  Skin age is estimated based on visible signs like fine lines, texture, and overall skin condition
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Locked Section for Free Tier */}
+        {isFreeTier ? (
+          <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100 relative overflow-hidden">
+            <View className="absolute inset-0 bg-white/80 z-10 items-center justify-center">
+              <View className="items-center">
+                <Lock size={32} color="#9CA3AF" />
+                <Text className="text-gray-500 font-semibold mt-2">Subscribe to unlock</Text>
+                <Text className="text-gray-400 text-sm mt-1 text-center px-8">
+                  Get detailed conditions, routines, heatmaps & more
+                </Text>
+              </View>
+            </View>
+            
+            {/* Blurred preview content */}
+            <View style={{ opacity: 0.3 }}>
+              <View className="flex-row items-center mb-4">
+                <AlertCircle size={24} color="#10B981" strokeWidth={2} />
+                <Text className="text-xl font-bold text-gray-900 ml-2">Conditions</Text>
+              </View>
+              <View className="h-4 w-3/4 bg-gray-200 rounded mb-3" />
+              <View className="h-4 w-1/2 bg-gray-200 rounded mb-3" />
+              <View className="h-4 w-2/3 bg-gray-200 rounded" />
+            </View>
+          </View>
+        ) : (
+          <>
         {/* Conditions Card */}
         <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100">
           <View className="flex-row items-center mb-4">
@@ -357,6 +488,12 @@ export default function Result() {
             </View>
           </View>
         )}
+        </>
+        )}
+        {/* Medical Disclaimer */}
+        <Text className="text-xs text-gray-400 text-center mt-6 mb-2 px-4">
+          This is not medical advice. Consult a healthcare professional for diagnosis or treatment.
+        </Text>
       </View>
       </ScrollView>
     </SafeAreaView>

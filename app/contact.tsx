@@ -114,6 +114,7 @@ export default function Contact() {
           className="flex-1"
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
           <View className="px-5 pt-6 pb-4">
@@ -127,7 +128,7 @@ export default function Contact() {
             </Pressable>
             <Text className="text-gray-900 text-3xl font-bold mb-1">Contact & Support</Text>
             <Text className="text-gray-600 text-base">
-              We're here to help! Send us a message and we'll get back to you soon.
+              We{"'"}re here to help! Send us a message and we{"'"}ll get back to you soon.
             </Text>
           </View>
 

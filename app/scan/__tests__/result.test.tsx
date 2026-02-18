@@ -2,11 +2,15 @@ import React from "react";
 import { render, waitFor, fireEvent } from "@testing-library/react-native";
 import Result from "../result";
 import { getScan } from "../../../src/lib/scan";
+import { hasActiveSubscription } from "../../../src/lib/billing";
 import { useLocalSearchParams } from "expo-router";
 import { supabase } from "../../../src/lib/supabase";
 
 jest.mock("../../../src/lib/scan");
 jest.mock("../../../src/lib/supabase");
+jest.mock("../../../src/lib/billing", () => ({
+  hasActiveSubscription: jest.fn(),
+}));
 jest.mock("expo-router");
 jest.mock("lucide-react-native", () => ({
   TrendingUp: "TrendingUp",
@@ -28,6 +32,7 @@ describe("Result", () => {
     jest.clearAllMocks();
     (useLocalSearchParams as jest.Mock).mockReturnValue(mockParams);
     (require("expo-router").useRouter as jest.Mock).mockReturnValue(mockRouter);
+    (hasActiveSubscription as jest.Mock).mockResolvedValue(true);
     (supabase.auth.getSession as jest.Mock).mockResolvedValue({
       data: { session: { access_token: "token" } },
     });
@@ -435,5 +440,28 @@ describe("Result", () => {
       expect(getByText("Gentle formula")).toBeTruthy();
     });
   });
-});
 
+  describe("Skin Age Feature", () => {
+    it("should handle missing skin age gracefully", async () => {
+      const mockScan = {
+        id: "scan-123",
+        skin_score: 85,
+        skin_type: "normal",
+        front_path: "path/front.jpg",
+        skin_age: null,
+        actual_age: null,
+        skin_age_comparison: null,
+      };
+
+      (getScan as jest.Mock).mockResolvedValue(mockScan);
+
+      const { getByText, queryByText } = render(<Result />);
+
+      await waitFor(() => {
+        expect(getByText("Your Results")).toBeTruthy();
+        // Skin Age section should not show when no skin_age
+        expect(queryByText("Skin Age")).toBeNull();
+      });
+    });
+  });
+});

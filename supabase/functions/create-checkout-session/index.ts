@@ -1,37 +1,123 @@
-// supabase/functions/create-checkout-session/index.ts
-// @ts-ignore
+/**
+ * =============================================================================
+ * CLEARSKIN AI - CREATE CHECKOUT SESSION ENDPOINT
+ * =============================================================================
+ * 
+ * Creates a Stripe checkout session for subscription purchases.
+ * Creates/retrieves Stripe customer and redirects to Stripe Checkout.
+ * 
+ * Security measures:
+ * - Rate limiting (IP + user-based)
+ * - JWT token validation
+ * - CORS protection
+ * - Environment variable validation
+ * 
+ * @version 2.0.0
+ * =============================================================================
+ */
+
+// @ts-expect-error - npm specifier not recognized by tsc
 import { createClient } from "npm:@supabase/supabase-js@2";
-// @ts-ignore
+// @ts-expect-error - npm specifier not recognized by tsc
 import Stripe from "npm:stripe@14";
-const sb = createClient(Deno.env.get("PROJECT_URL"), Deno.env.get("SERVICE_ROLE_KEY"));
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY_TEST"), {
+
+// Import shared security utilities
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  validateContentLength,
+  requireEnv,
+  successResponse,
+  errorResponse
+} from "../_shared/security.ts";
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+// --- SECURITY: Fail fast if any required secret is missing (OWASP A05:2021) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+const STRIPE_SECRET_KEY = requireEnv("STRIPE_SECRET_KEY_TEST");
+const STRIPE_PRICE_ID = requireEnv("STRIPE_PRICE_UNLIMITED_TEST");
+
+// Initialize clients
+const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
   apiVersion: "2024-06-20"
 });
-function j(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-}
-Deno.serve(async (req)=>{
-  if (req.method !== "POST") return j({
-    error: "Method not allowed"
-  }, 405);
+
+// Checkout redirect URLs
+const SUCCESS_URL = "clearskinai://checkout/success";
+const CANCEL_URL = "clearskinai://checkout/cancel";
+
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
+
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  // Only allow POST method
+  if (req.method !== "POST") {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
+  }
+
+  // --- SECURITY: Reject oversized payloads (max 10KB for this endpoint) ---
+  const sizeCheck = validateContentLength(req, 10 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
+
   try {
+    // --- SECURITY: Authentication ---
     const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return j({
-      error: "Unauthorized"
-    }, 401);
+    if (!auth?.startsWith("Bearer ")) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
     const token = auth.split(" ")[1];
-    const { data: { user } } = await sb.auth.getUser(token);
-    if (!user) return j({
-      error: "Unauthorized"
-    }, 401);
-    // Ensure we have/make a Stripe customer for this user
-    let { data: bc } = await sb.from("billing_customers").select("*").eq("user_id", user.id).maybeSingle();
-    let customerId = bc?.stripe_customer_id;
+    const { data: { user }, error: authError } = await sb.auth.getUser(token);
+    
+    if (authError || !user) {
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', error: authError?.message });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
+    // --- SECURITY: Rate Limiting (IP + User) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.standard, clientIP);
+    
+    if (rateLimit.limited) {
+      logSecurityEvent('rate_limit_exceeded', { 
+        userId: user.id, 
+        ip: clientIP,
+        endpoint: 'create-checkout-session'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+
+    // --- BUSINESS LOGIC: Create Checkout Session ---
+
+    // Get or create Stripe customer
+    let { data: billingCustomer } = await sb
+      .from("billing_customers")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    let customerId = billingCustomer?.stripe_customer_id;
+
+    // Create new Stripe customer if needed
     if (!customerId) {
       const customer = await stripe.customers.create({
         email: user.email ?? undefined,
@@ -39,26 +125,37 @@ Deno.serve(async (req)=>{
           supabase_user_id: user.id
         }
       });
+      
       customerId = customer.id;
-      await sb.from("billing_customers").upsert({
-        user_id: user.id,
-        stripe_customer_id: customerId
-      });
+
+      // Store customer mapping
+      const { error: upsertError } = await sb
+        .from("billing_customers")
+        .upsert({
+          user_id: user.id,
+          stripe_customer_id: customerId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (upsertError) {
+        console.error("Failed to store billing customer:", upsertError);
+        // Continue - customer was created in Stripe
+      }
     }
-    const price = Deno.env.get("STRIPE_PRICE_UNLIMITED_TEST");
-    const success = "clearskinai://checkout/success";
-    const cancel = "clearskinai://checkout/cancel";
+
+    // Create checkout session
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [
         {
-          price,
+          price: STRIPE_PRICE_ID,
           quantity: 1
         }
       ],
-      success_url: success,
-      cancel_url: cancel,
+      success_url: SUCCESS_URL,
+      cancel_url: CANCEL_URL,
       allow_promotion_codes: true,
       metadata: {
         supabase_user_id: user.id
@@ -69,12 +166,29 @@ Deno.serve(async (req)=>{
         }
       }
     });
-    return j({
+
+    return successResponse({
       url: session.url
-    }, 200);
-  } catch (e) {
-    return j({
-      error: String(e)
-    }, 500);
+    }, 200, corsHeaders);
+
+  } catch (error) {
+    console.error("create-checkout-session error:", error);
+    
+    // Handle Stripe-specific errors
+    if (error instanceof Stripe.errors.StripeError) {
+      return errorResponse(
+        "Payment service error. Please try again later.",
+        502,
+        "STRIPE_ERROR",
+        corsHeaders
+      );
+    }
+
+    return errorResponse(
+      "An error occurred while creating the checkout session",
+      500,
+      "INTERNAL_ERROR",
+      corsHeaders
+    );
   }
 });

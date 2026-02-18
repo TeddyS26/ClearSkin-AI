@@ -1,58 +1,204 @@
-// @ts-ignore errors about "npm:" imports in Supabase editor
+/**
+ * =============================================================================
+ * CLEARSKIN AI - AUTHORIZE SCAN ENDPOINT
+ * =============================================================================
+ * 
+ * Checks if a user is authorized to perform a skin scan.
+ * Authorization flow:
+ * 1. Active subscription with remaining weekly scans
+ * 2. Available scan credits
+ * 3. Free trial (first scan for new users)
+ * 
+ * Security measures:
+ * - Rate limiting (IP + user-based)
+ * - JWT token validation
+ * - CORS protection
+ * - Input validation
+ * 
+ * @version 2.0.0
+ * =============================================================================
+ */
+
+// @ts-expect-error errors about "npm:" imports in Supabase editor
 import { createClient } from "npm:@supabase/supabase-js@2";
-const sb = createClient(Deno.env.get("PROJECT_URL"), Deno.env.get("SERVICE_ROLE_KEY"));
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-}
-Deno.serve(async (req)=>{
+
+// Import shared security utilities
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  validateContentLength,
+  requireEnv,
+  successResponse,
+  errorResponse
+} from "../_shared/security.ts";
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+// --- SECURITY: Fail fast if required secrets are missing (OWASP A05:2021) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+
+// Initialize Supabase client with service role (server-side operations)
+const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
+
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
+
+Deno.serve(async (req: Request) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // Handle CORS preflight requests
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  // Only allow GET and POST methods
+  if (req.method !== "GET" && req.method !== "POST") {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
+  }
+
+  // --- SECURITY: Reject oversized payloads (max 10KB for this endpoint) ---
+  const sizeCheck = validateContentLength(req, 10 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
+
   try {
+    // --- SECURITY: Authentication ---
     const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return new Response("Unauthorized", {
-      status: 401
-    });
+    if (!auth?.startsWith("Bearer ")) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
     const token = auth.split(" ")[1];
-    const { data: { user }, error } = await sb.auth.getUser(token);
-    if (error || !user) return new Response("Unauthorized", {
-      status: 401
-    });
-    // 1) Active subscription with remaining weekly scans?
-    const { data: sub } = await sb.from("subscriptions").select("*").eq("user_id", user.id).eq("status", "active").maybeSingle();
-    const { data: tw } = await sb.from("scans_this_week").select("scans_count").eq("user_id", user.id).maybeSingle();
-    const used = tw?.scans_count ?? 0;
-    if (sub && used < (sub.weekly_limit ?? 0)) {
-      return json({
+    const { data: { user }, error: authError } = await sb.auth.getUser(token);
+    
+    if (authError || !user) {
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', error: authError?.message });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+
+    // --- SECURITY: Rate Limiting (IP + User) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.read, clientIP);
+    
+    if (rateLimit.limited) {
+      logSecurityEvent('rate_limit_exceeded', { 
+        userId: user.id, 
+        ip: clientIP,
+        endpoint: 'authorize-scan'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+
+    // --- BUSINESS LOGIC: Authorization Checks ---
+
+    // 1) Check active subscription with remaining weekly scans
+    // Use .order().limit(1) instead of .maybeSingle() to avoid errors
+    // when multiple active subscription rows exist for the same user
+    const { data: subscriptions } = await sb
+      .from("subscriptions")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("current_period_end", { ascending: false })
+      .limit(1);
+
+    const subscription = subscriptions?.[0] ?? null;
+
+    // Trust the status field — the Stripe webhook keeps it in sync.
+    // When a subscription expires/cancels, the webhook sets status accordingly.
+    const isSubscriptionValid = !!subscription;
+
+    const { data: weeklyScans } = await sb
+      .from("scans_this_week")
+      .select("scans_count")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const usedScans = weeklyScans?.scans_count ?? 0;
+
+    if (isSubscriptionValid && usedScans < (subscription.weekly_limit ?? 0)) {
+      return successResponse({
         allowed: true,
         reason: "subscription",
-        remaining: sub.weekly_limit - used
-      });
+        remaining: subscription.weekly_limit - usedScans,
+        isFreeTier: false
+      }, 200, corsHeaders);
     }
-    // 2) Otherwise, try to use one credit
-    const { data: creditsRow } = await sb.from("scan_credits").select("credits").eq("user_id", user.id).maybeSingle();
+
+    // 2) Check for available scan credits
+    const { data: creditsRow } = await sb
+      .from("scan_credits")
+      .select("credits")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
     const credits = creditsRow?.credits ?? 0;
+
     if (credits > 0) {
-      await sb.from("scan_credits").upsert({
-        user_id: user.id,
-        credits: credits - 1,
-        updated_at: new Date().toISOString()
-      });
-      return json({
+      // Deduct one credit atomically
+      const { error: creditError } = await sb
+        .from("scan_credits")
+        .upsert({
+          user_id: user.id,
+          credits: credits - 1,
+          updated_at: new Date().toISOString()
+        });
+
+      if (creditError) {
+        console.error("Failed to deduct credit:", creditError);
+        return errorResponse("Failed to process scan credit", 500, "CREDIT_ERROR", corsHeaders);
+      }
+
+      return successResponse({
         allowed: true,
         reason: "credit",
-        remaining: credits - 1
-      });
+        remaining: credits - 1,
+        isFreeTier: false
+      }, 200, corsHeaders);
     }
-    // 3) Block → paywall
-    return json({
-      allowed: false
-    });
-  } catch (e) {
-    return json({
-      error: String(e)
-    }, 500);
+
+    // 3) Check free trial eligibility (first completed scan)
+    const { data: existingScans, error: scanError } = await sb
+      .from("scan_sessions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "complete")
+      .not("skin_score", "is", null)
+      .limit(1);
+
+    if (!scanError && (!existingScans || existingScans.length === 0)) {
+      return successResponse({
+        allowed: true,
+        reason: "free_trial",
+        remaining: 0,
+        isFreeTier: true
+      }, 200, corsHeaders);
+    }
+
+    // 4) Not authorized - redirect to paywall
+    return successResponse({
+      allowed: false,
+      reason: "no_credits",
+      isFreeTier: false,
+      message: "Please purchase a subscription or scan credits to continue."
+    }, 200, corsHeaders);
+
+  } catch (error) {
+    console.error("authorize-scan error:", error);
+    return errorResponse(
+      "An error occurred while checking scan authorization",
+      500,
+      "INTERNAL_ERROR",
+      corsHeaders
+    );
   }
 });

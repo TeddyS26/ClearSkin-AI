@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal, StatusBar } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal, StatusBar, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
@@ -17,10 +17,22 @@ import {
   Eye,
   EyeOff,
   Download,
-  MessageSquare
+  MessageSquare,
+  Calendar,
+  UserCircle,
+  AlertCircle
 } from "lucide-react-native";
 import { openBillingPortal, getSubscriptionStatus } from "../src/lib/billing";
 import { supabase } from "../src/lib/supabase";
+
+type UserProfile = {
+  date_of_birth: string | null;
+  gender: string | null;
+  age: number | null;
+  profile_edited: boolean;
+};
+
+type GenderOption = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
 export default function Settings() {
   const { user, signOut } = useAuth();
@@ -36,10 +48,56 @@ export default function Settings() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [exportingData, setExportingData] = useState(false);
+  
+  // Profile state
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileGender, setProfileGender] = useState<GenderOption | null>(null);
+  const [profileDOB, setProfileDOB] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     loadSubscriptionStatus();
+    loadUserProfile();
   }, []);
+
+  async function loadUserProfile() {
+    try {
+      setProfileLoading(true);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+
+      const { data: profile, error } = await supabase
+        .from("user_profiles")
+        .select("date_of_birth, gender, age, profile_edited")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error loading profile:", error);
+        return;
+      }
+
+      if (profile) {
+        setUserProfile(profile);
+        setProfileGender(profile.gender as GenderOption | null);
+        setProfileDOB(profile.date_of_birth || "");
+      } else {
+        // Profile doesn't exist yet - set defaults
+        setUserProfile({
+          date_of_birth: null,
+          gender: null,
+          age: null,
+          profile_edited: false
+        });
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
+    } finally {
+      setProfileLoading(false);
+    }
+  }
 
   async function loadSubscriptionStatus() {
     try {
@@ -262,7 +320,7 @@ export default function Settings() {
           if (sub.stripe_subscription_id) {
             try {
               await supabase.functions.invoke('cancel-subscription', {
-                body: { subscriptionId: sub.stripe_subscription_id },
+                body: { subscriptionId: sub.stripe_subscription_id, immediate: true },
                 headers: {
                   Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
                 },
@@ -384,6 +442,132 @@ export default function Settings() {
     );
   };
 
+  const handleOpenProfileModal = () => {
+    if (userProfile?.profile_edited) {
+      Alert.alert(
+        "Profile Already Set",
+        "Your profile information can only be set once and has already been configured. If you need to make changes, please contact support.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+    setShowProfileModal(true);
+  };
+
+  const calculateAge = (dob: string): number => {
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const isValidDate = (dateString: string): boolean => {
+    // Expected format: YYYY-MM-DD
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+    
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const today = new Date();
+    
+    // Must be a valid date, between 13 and 120 years old
+    return !isNaN(date.getTime()) && 
+           year >= 1900 && 
+           year <= today.getFullYear() - 13 &&
+           date <= today;
+  };
+
+  const handleSaveProfile = async () => {
+    // Validate inputs
+    if (!profileGender) {
+      Alert.alert("Required", "Please select your gender");
+      return;
+    }
+
+    if (!profileDOB) {
+      Alert.alert("Required", "Please enter your date of birth");
+      return;
+    }
+
+    if (!isValidDate(profileDOB)) {
+      Alert.alert("Invalid Date", "Please enter a valid date in YYYY-MM-DD format. You must be at least 13 years old.");
+      return;
+    }
+
+    const age = calculateAge(profileDOB);
+
+    Alert.alert(
+      "Confirm Profile Information",
+      `Once saved, this information cannot be changed.\n\nGender: ${profileGender === 'prefer_not_to_say' ? 'Prefer not to say' : profileGender.charAt(0).toUpperCase() + profileGender.slice(1)}\nDate of Birth: ${profileDOB}\nAge: ${age} years old`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save Profile",
+          onPress: async () => {
+            setSavingProfile(true);
+            try {
+              if (!user) throw new Error("No user found");
+
+              // Upsert profile (insert if not exists, update if exists)
+              const { error } = await supabase
+                .from("user_profiles")
+                .upsert({
+                  user_id: user.id,
+                  gender: profileGender,
+                  date_of_birth: profileDOB,
+                  age: age,
+                  profile_edited: true,
+                  profile_edited_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'user_id'
+                });
+
+              if (error) throw error;
+
+              // Update local state
+              setUserProfile({
+                gender: profileGender,
+                date_of_birth: profileDOB,
+                age: age,
+                profile_edited: true
+              });
+
+              setShowProfileModal(false);
+              Alert.alert(
+                "Profile Saved! ✓",
+                "Your profile has been saved. This information will be used to personalize your skin analysis results.",
+                [{ text: "OK" }]
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Save Failed",
+                error.message || "Failed to save profile. Please try again."
+              );
+            } finally {
+              setSavingProfile(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const formatGender = (gender: string | null): string => {
+    if (!gender) return "Not set";
+    switch (gender) {
+      case 'male': return 'Male';
+      case 'female': return 'Female';
+      case 'other': return 'Other';
+      case 'prefer_not_to_say': return 'Prefer not to say';
+      default: return gender;
+    }
+  };
+
   const SettingsButton = ({
     icon: Icon,
     title,
@@ -444,6 +628,7 @@ export default function Settings() {
         >
         <View className="px-5 pt-6 pb-4">
           <Pressable
+            testID="back-button"
             onPress={() => router.back()}
             className="flex-row items-center mb-4 active:opacity-60"
             android_ripple={{ color: "#9CA3AF20" }}
@@ -464,6 +649,89 @@ export default function Settings() {
               Account Information
             </Text>
             <InfoCard label="Email" value={user?.email || "Not available"} />
+          </View>
+
+          {/* Profile Section */}
+          <View className="mb-6">
+            <Text className="text-gray-900 text-lg font-bold mb-3">
+              Profile Information
+            </Text>
+            
+            {profileLoading ? (
+              <View className="bg-white rounded-2xl p-6 items-center shadow-sm">
+                <ActivityIndicator size="small" color="#10B981" />
+              </View>
+            ) : userProfile?.profile_edited ? (
+              // Profile is set - show read-only view
+              <View className="bg-white rounded-2xl p-5 shadow-sm">
+                <View className="flex-row items-center mb-4">
+                  <View className="w-12 h-12 bg-emerald-100 rounded-xl items-center justify-center mr-4">
+                    <UserCircle size={24} color="#10B981" strokeWidth={2} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold text-gray-900 mb-0.5">
+                      Profile Set
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      Used for personalized analysis
+                    </Text>
+                  </View>
+                </View>
+                <View className="bg-gray-50 rounded-xl p-4 gap-2">
+                  <View className="flex-row justify-between">
+                    <Text className="text-sm text-gray-600">Gender</Text>
+                    <Text className="text-sm text-gray-900 font-medium">{formatGender(userProfile.gender)}</Text>
+                  </View>
+                  <View className="flex-row justify-between">
+                    <Text className="text-sm text-gray-600">Age</Text>
+                    <Text className="text-sm text-gray-900 font-medium">{userProfile.age ? `${userProfile.age} years old` : "Not set"}</Text>
+                  </View>
+                  {userProfile.date_of_birth && (
+                    <View className="flex-row justify-between">
+                      <Text className="text-sm text-gray-600">Date of Birth</Text>
+                      <Text className="text-sm text-gray-900 font-medium">{userProfile.date_of_birth}</Text>
+                    </View>
+                  )}
+                </View>
+                <View className="mt-3 flex-row items-center">
+                  <AlertCircle size={14} color="#9CA3AF" strokeWidth={2} />
+                  <Text className="text-xs text-gray-500 ml-1">Profile cannot be changed. Contact support if needed.</Text>
+                </View>
+              </View>
+            ) : (
+              // Profile not set - show setup prompt
+              <View className="bg-white rounded-2xl p-5 shadow-sm">
+                <View className="flex-row items-center mb-4">
+                  <View className="w-12 h-12 bg-amber-100 rounded-xl items-center justify-center mr-4">
+                    <UserCircle size={24} color="#F59E0B" strokeWidth={2} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-base font-semibold text-gray-900 mb-0.5">
+                      Complete Your Profile
+                    </Text>
+                    <Text className="text-sm text-gray-600">
+                      Get more accurate skin analysis
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-sm text-gray-600 mb-4">
+                  Adding your age and gender helps our AI provide more accurate skin age estimates and personalized recommendations.
+                </Text>
+                <Pressable
+                  onPress={handleOpenProfileModal}
+                  className="bg-emerald-500 rounded-xl py-3 items-center active:opacity-90"
+                  android_ripple={{ color: "#059669" }}
+                >
+                  <Text className="text-white font-semibold text-base">
+                    Set Up Profile
+                  </Text>
+                </Pressable>
+                <View className="mt-3 flex-row items-center justify-center">
+                  <AlertCircle size={14} color="#9CA3AF" strokeWidth={2} />
+                  <Text className="text-xs text-gray-500 ml-1">This can only be set once</Text>
+                </View>
+              </View>
+            )}
           </View>
 
           {/* Subscription Section */}
@@ -741,6 +1009,141 @@ export default function Settings() {
                       setCurrentPassword("");
                       setNewPassword("");
                       setConfirmPassword("");
+                    }}
+                    className="py-4 rounded-xl items-center bg-gray-100 active:bg-gray-200"
+                  >
+                    <Text className="text-gray-700 text-base font-semibold">
+                      Cancel
+                    </Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Profile Setup Modal */}
+        <Modal
+          visible={showProfileModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowProfileModal(false)}
+        >
+          <View className="flex-1 bg-black/50 justify-end">
+            <View className="bg-white rounded-t-3xl p-6" style={{ maxHeight: '85%' }}>
+              {/* Modal Header */}
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-gray-900 text-2xl font-bold">Set Up Profile</Text>
+                <Pressable
+                  onPress={() => setShowProfileModal(false)}
+                  className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center active:opacity-70"
+                >
+                  <X size={20} color="#374151" strokeWidth={2} />
+                </Pressable>
+              </View>
+              
+              <View className="bg-amber-50 rounded-xl p-3 mb-4 flex-row items-center">
+                <AlertCircle size={18} color="#F59E0B" strokeWidth={2} />
+                <Text className="text-amber-700 text-sm ml-2 flex-1">
+                  This information can only be set once and cannot be changed later.
+                </Text>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Gender Selection */}
+                <View className="mb-5">
+                  <Text className="text-gray-700 text-sm font-medium mb-3">Gender</Text>
+                  <View className="gap-2">
+                    {[
+                      { value: 'male' as GenderOption, label: 'Male' },
+                      { value: 'female' as GenderOption, label: 'Female' },
+                      { value: 'other' as GenderOption, label: 'Other' },
+                      { value: 'prefer_not_to_say' as GenderOption, label: 'Prefer not to say' },
+                    ].map((option) => (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => setProfileGender(option.value)}
+                        className={`flex-row items-center p-4 rounded-xl border ${
+                          profileGender === option.value
+                            ? "bg-emerald-50 border-emerald-500"
+                            : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <View className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
+                          profileGender === option.value
+                            ? "border-emerald-500"
+                            : "border-gray-400"
+                        }`}>
+                          {profileGender === option.value && (
+                            <View className="w-3 h-3 rounded-full bg-emerald-500" />
+                          )}
+                        </View>
+                        <Text className={`text-base ${
+                          profileGender === option.value
+                            ? "text-emerald-700 font-medium"
+                            : "text-gray-700"
+                        }`}>
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Date of Birth Input */}
+                <View className="mb-5">
+                  <Text className="text-gray-700 text-sm font-medium mb-2">Date of Birth</Text>
+                  <View className="flex-row items-center bg-gray-50 rounded-xl px-4 border border-gray-200">
+                    <Calendar size={20} color="#9CA3AF" strokeWidth={2} />
+                    <TextInput
+                      value={profileDOB}
+                      onChangeText={setProfileDOB}
+                      placeholder="YYYY-MM-DD (e.g., 1995-06-15)"
+                      className="flex-1 py-4 px-3 text-gray-900"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="default"
+                      maxLength={10}
+                    />
+                  </View>
+                  <Text className="text-gray-500 text-xs mt-1">Format: YYYY-MM-DD (Must be at least 13 years old)</Text>
+                </View>
+
+                {/* Why We Need This */}
+                <View className="bg-gray-50 rounded-xl p-4 mb-6">
+                  <Text className="text-gray-900 text-sm font-semibold mb-2">Why we need this</Text>
+                  <Text className="text-gray-600 text-sm leading-5">
+                    • <Text className="font-medium">Age:</Text> Helps us estimate your skin age and compare it to your actual age{'\n'}
+                    • <Text className="font-medium">Gender:</Text> Male and female skin have different characteristics (thickness, oil production, collagen) that affect analysis accuracy{'\n'}
+                    • <Text className="font-medium">Better recommendations:</Text> Products and routines can be tailored to your specific demographic
+                  </Text>
+                </View>
+
+                {/* Action Buttons */}
+                <View className="gap-3 pb-4">
+                  <Pressable
+                    onPress={handleSaveProfile}
+                    disabled={savingProfile || !profileGender || !profileDOB}
+                    className={`py-4 rounded-xl items-center ${
+                      savingProfile || !profileGender || !profileDOB
+                        ? "bg-gray-300"
+                        : "bg-emerald-500 active:bg-emerald-600"
+                    }`}
+                  >
+                    {savingProfile ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text className="text-white text-base font-semibold">
+                        Save Profile
+                      </Text>
+                    )}
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      setShowProfileModal(false);
+                      // Reset to original values
+                      setProfileGender(userProfile?.gender as GenderOption | null);
+                      setProfileDOB(userProfile?.date_of_birth || "");
                     }}
                     className="py-4 rounded-xl items-center bg-gray-100 active:bg-gray-200"
                   >

@@ -7,6 +7,11 @@ jest.mock("lucide-react-native", () => ({
   Sparkles: "Sparkles",
 }));
 
+// Mock useAuth to simulate a logged-out, non-loading state
+jest.mock("../../src/ctx/AuthContext", () => ({
+  useAuth: () => ({ user: null, loading: false }),
+}));
+
 describe("Welcome", () => {
   it("should render welcome screen", () => {
     const { getByText } = render(<Welcome />);

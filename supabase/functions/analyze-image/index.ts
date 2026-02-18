@@ -1,35 +1,48 @@
 // Edge Function: analyze-image (with face detection validation and context support)
-// npm import works in Supabase Edge; the ts-ignore silences the editor squiggle.
-// @ts-ignore
+// npm import works in Supabase Edge; the ts-expect-error silences the editor squiggle.
+// @ts-expect-error - npm specifier not recognized by tsc
 import { createClient } from "npm:@supabase/supabase-js@2";
-// --- Secrets (fail fast if missing)
-const PROJECT_URL = Deno.env.get("PROJECT_URL");
-const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-if (!PROJECT_URL || !SERVICE_ROLE_KEY || !OPENAI_API_KEY) {
-  throw new Error("Missing PROJECT_URL, SERVICE_ROLE_KEY, or OPENAI_API_KEY");
-}
+
+// --- SECURITY: Import shared security utilities (rate limiting, CORS, validation) ---
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+  getCorsHeaders,
+  handleCorsPreflightRequest,
+  getClientIP,
+  logSecurityEvent,
+  isValidUUID,
+  validateContentLength,
+  requireEnv,
+  errorResponse,
+  successResponse
+} from "../_shared/security.ts";
+
+// --- Secrets (fail fast if missing, using shared requireEnv) ---
+const PROJECT_URL = requireEnv("PROJECT_URL");
+const SERVICE_ROLE_KEY = requireEnv("SERVICE_ROLE_KEY");
+const OPENAI_API_KEY = requireEnv("OPENAI_API_KEY");
+
 const sb = createClient(PROJECT_URL, SERVICE_ROLE_KEY);
-function json(data, status = 200) {
+
+// --- SECURITY: Use shared CORS configuration ---
+// CORS headers are provided by the imported getCorsHeaders() from shared security module.
+
+function json(data: unknown, status = 200, origin?: string | null) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      "Content-Type": "application/json",
-      // CORS friendly if you ever hit this from web
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "authorization, content-type",
-      "Access-Control-Allow-Methods": "POST, OPTIONS"
-    }
+    headers: getCorsHeaders(origin)
   });
 }
-function normPath(p) {
+function normPath(p: string) {
   return p?.startsWith("/") ? p.slice(1) : p;
 }
 /**
  * Validates that user-provided context is relevant to skincare
  * @param context - User-provided context string
  * @returns { valid: boolean, error?: string, sanitized?: string }
- */ async function validateContext(context) {
+ */ async function validateContext(context: string) {
   if (!context || context.trim().length === 0) {
     return {
       valid: true
@@ -140,8 +153,8 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 50,
+        model: "gpt-5-mini",
+        max_completion_tokens: 50,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -207,36 +220,109 @@ async function validateFaceDetection(imageUrl: string, imageLabel: string) {
   }
 }
 
-Deno.serve(async (req)=>{
-  if (req.method === "OPTIONS") return json({}, 200);
-  if (req.method !== "POST") return new Response("Method Not Allowed", {
-    status: 405
-  });
+Deno.serve(async (req: Request)=>{
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // --- SECURITY: Handle CORS preflight using shared module ---
+  const preflightResponse = handleCorsPreflightRequest(req);
+  if (preflightResponse) return preflightResponse;
+
+  if (req.method !== "POST") {
+    return errorResponse("Method not allowed", 405, "METHOD_NOT_ALLOWED", corsHeaders);
+  }
+
+  // --- SECURITY: Reject oversized payloads (max 5MB for image paths) ---
+  const sizeCheck = validateContentLength(req, 5 * 1024 * 1024, corsHeaders);
+  if (sizeCheck) return sizeCheck;
+
   let scanId = null;
   try {
-    // --- 1) Auth (user token)
+    // --- 1) SECURITY: Authentication (JWT validation) ---
     const auth = req.headers.get("Authorization");
-    if (!auth?.startsWith("Bearer ")) return new Response("Unauthorized", {
-      status: 401
-    });
+    if (!auth?.startsWith("Bearer ")) {
+      logSecurityEvent('invalid_token', { reason: 'Missing or malformed Authorization header', endpoint: 'analyze-image' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
     const token = auth.split(" ")[1];
     const { data: { user }, error: userErr } = await sb.auth.getUser(token);
-    if (userErr || !user) return new Response("Unauthorized", {
-      status: 401
-    });
-    // --- 2) Parse input
-    const body = await req.json();
+    if (userErr || !user) {
+      logSecurityEvent('invalid_token', { reason: 'Invalid JWT token', endpoint: 'analyze-image' });
+      return errorResponse("Unauthorized", 401, "UNAUTHORIZED", corsHeaders);
+    }
+    
+    // --- 1.5) SECURITY: Rate limiting (IP + user-based via shared module) ---
+    const clientIP = getClientIP(req);
+    const rateLimit = checkRateLimit(user.id, RATE_LIMITS.expensive, clientIP);
+    if (rateLimit.limited) {
+      logSecurityEvent('rate_limit_exceeded', {
+        userId: user.id,
+        ip: clientIP,
+        endpoint: 'analyze-image'
+      });
+      return rateLimitResponse(rateLimit.resetIn, corsHeaders);
+    }
+    
+    // --- 2) SECURITY: Parse and validate input with strict type checks ---
+    let body;
+    try {
+      body = await req.json();
+    } catch {
+      return errorResponse("Invalid JSON body", 400, "INVALID_JSON", corsHeaders);
+    }
+
+    // Reject unexpected fields (OWASP: reject unknown inputs)
+    const allowedFields = new Set(['scan_session_id', 'front_path', 'left_path', 'right_path', 'context']);
+    for (const key of Object.keys(body)) {
+      if (!allowedFields.has(key)) {
+        logSecurityEvent('suspicious_input', { userId: user.id, unexpectedField: key, endpoint: 'analyze-image' });
+        return errorResponse(`Unexpected field: ${key}`, 400, "VALIDATION_ERROR", corsHeaders);
+      }
+    }
+
     const scan_session_id = String(body?.scan_session_id ?? "");
     const front_path = normPath(String(body?.front_path ?? ""));
     const left_path = normPath(String(body?.left_path ?? ""));
     const right_path = normPath(String(body?.right_path ?? ""));
-    const user_context = String(body?.context ?? "").trim();
-    if (!scan_session_id || !front_path || !left_path || !right_path) {
-      return json({
-        ok: false,
-        error: "Missing scan_session_id or paths"
-      }, 400);
+    // Sanitize context: enforce string type, length limit, strip dangerous characters
+    const rawContext = String(body?.context ?? "").trim();
+    const user_context = rawContext
+      .slice(0, 500)
+      .replace(/[<>]/g, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+=/gi, '');
+    
+    // --- SECURITY: Validate scan_session_id is a valid UUID (prevents injection) ---
+    if (!scan_session_id || !isValidUUID(scan_session_id)) {
+      logSecurityEvent('validation_failed', { userId: user.id, reason: 'Invalid scan_session_id', endpoint: 'analyze-image' });
+      return errorResponse("Invalid scan_session_id format", 400, "VALIDATION_ERROR", corsHeaders);
     }
+    
+    if (!front_path || !left_path || !right_path) {
+      return errorResponse("Missing image paths", 400, "VALIDATION_ERROR", corsHeaders);
+    }
+
+    // --- SECURITY: Validate path lengths (max 500 chars) ---
+    if (front_path.length > 500 || left_path.length > 500 || right_path.length > 500) {
+      return errorResponse("Image path too long", 400, "VALIDATION_ERROR", corsHeaders);
+    }
+
+    // --- SECURITY: Check for path traversal attempts ---
+    const pathTraversalPattern = /\.\.|\/\//;
+    if (pathTraversalPattern.test(front_path) || pathTraversalPattern.test(left_path) || pathTraversalPattern.test(right_path)) {
+      logSecurityEvent('suspicious_input', { userId: user.id, reason: 'Path traversal attempt', endpoint: 'analyze-image' });
+      return errorResponse("Invalid path format", 400, "VALIDATION_ERROR", corsHeaders);
+    }
+    
+    // --- SECURITY: Validate paths belong to user (prevents unauthorized data access) ---
+    const expectedPrefix = `user/${user.id}/`;
+    if (!front_path.startsWith(expectedPrefix) || 
+        !left_path.startsWith(expectedPrefix) || 
+        !right_path.startsWith(expectedPrefix)) {
+      logSecurityEvent('unauthorized_access', { userId: user.id, reason: 'Path ownership violation', endpoint: 'analyze-image' });
+      return errorResponse("Unauthorized access to image paths", 403, "FORBIDDEN", corsHeaders);
+    }
+    
     scanId = scan_session_id;
     // --- 2.5) Validate context if provided
     let validatedContext = undefined;
@@ -263,7 +349,7 @@ Deno.serve(async (req)=>{
       } : {}
     }).eq("id", scan_session_id).eq("user_id", user.id);
     // --- 4) Signed URLs (private bucket 'scan')
-    const sign = async (path)=>{
+    const sign = async (path: string)=>{
       const { data, error } = await sb.storage.from("scan").createSignedUrl(path, 60 * 10); // 10 min
       if (error || !data?.signedUrl) throw new Error(`sign error: ${path} -> ${error?.message}`);
       return data.signedUrl;
@@ -309,8 +395,60 @@ Deno.serve(async (req)=>{
       }, 400);
     }
     console.log("Face detection validation passed for all three photos. Proceeding with analysis...");
+    
+    // --- 4.6) Fetch user profile for personalized analysis
+    let userProfile = null;
+    let userAge = null;
+    let userGender = null;
+    try {
+      const { data: profile } = await sb
+        .from("user_profiles")
+        .select("age, gender, date_of_birth")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (profile) {
+        userProfile = profile;
+        userGender = profile.gender;
+        // Calculate age from date_of_birth if available, otherwise use stored age
+        if (profile.date_of_birth) {
+          const dob = new Date(profile.date_of_birth);
+          const today = new Date();
+          userAge = today.getFullYear() - dob.getFullYear();
+          const monthDiff = today.getMonth() - dob.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            userAge--;
+          }
+        } else if (profile.age) {
+          userAge = profile.age;
+        }
+        console.log(`User profile loaded: age=${userAge}, gender=${userGender}`);
+      }
+    } catch (profileError) {
+      console.warn("Could not fetch user profile:", profileError);
+    }
+    
+    // Build demographic context string for AI
+    const demographicContext = userAge || userGender 
+      ? `\nUSER DEMOGRAPHICS:
+${userAge ? `- Actual Age: ${userAge} years old` : "- Age: Not provided"}
+${userGender ? `- Gender: ${userGender}` : "- Gender: Not provided"}
+
+IMPORTANT DEMOGRAPHIC CONSIDERATIONS:
+${userGender === 'male' ? `- Male skin is typically ~25% thicker with more collagen
+- Higher sebum production - may need oil-control products
+- Shaving-related concerns (razor burn, ingrown hairs) are common
+- Products should be suitable for male skin characteristics` : ''}
+${userGender === 'female' ? `- Consider hormonal influences on skin (cycle-related breakouts)
+- May have different product preferences
+- Skin may be more responsive to certain active ingredients` : ''}
+${userAge ? `- Factor in age-appropriate recommendations
+- Compare estimated skin age to actual age (${userAge})
+- Consider preventive vs corrective approaches based on age` : ''}` 
+      : '';
+
     // --- 5) Build OpenAI request (strict JSON)
-    const system = `You are an expert dermatological AI assistant that analyzes facial skin from 3 photos: front view, left profile, and right profile.
+    const system = `You are an expert dermatological AI assistant that analyzes facial skin from 3 photos: front view, left profile, and right profile.${demographicContext}
 
 CRITICAL INSTRUCTIONS:
 1. You MUST analyze ALL THREE photos comprehensively. Use information from all angles to calculate scores and identify issues.
@@ -318,6 +456,15 @@ CRITICAL INSTRUCTIONS:
 3. Create detailed, personalized skincare routines based on the SPECIFIC issues you identify in these photos.
 4. Recommend SPECIFIC products tailored to the user's unique skin concerns, not generic categories.
 5. For heatmaps, provide detailed polygon coordinates that accurately map to problem areas on the actual face in each photo.
+
+SCORING CALIBRATION GUIDE - Use the FULL 0-100 range:
+- 90-100: Exceptional - virtually no visible issues, clear and radiant skin
+- 75-89: Good - minor imperfections, generally healthy and well-maintained skin
+- 60-74: Fair - noticeable issues that are manageable with a proper routine
+- 40-59: Below Average - multiple visible concerns needing consistent attention
+- 20-39: Poor - significant issues across multiple categories
+- 0-19: Severe - extensive visible damage/issues, professional consultation recommended
+Do NOT cluster most scores in the 65-85 range. Differentiate clearly based on what you see.
 ${validatedContext ? `6. IMPORTANT: The user has provided additional context about their skin: "${validatedContext}". 
    - Use this context to enhance your analysis, but ALWAYS prioritize visual evidence from photos
    - If context mentions something NOT visible in photos, acknowledge it but explain: "While you mentioned [context], 
@@ -333,6 +480,10 @@ Return a strict JSON object with the following structure:
   "skin_potential": int 0-100 (GRANULAR - not multiples of 5, e.g., 78, 86, 92),
   "skin_health_percent": int 0-100 (GRANULAR - not multiples of 5),
   "skin_type": "oily"|"dry"|"combination"|"normal"|"unknown",
+  
+  "skin_age": int (estimated biological age of the skin based on visual analysis - consider fine lines, wrinkles, skin elasticity appearance, sun damage, texture, pore size, collagen appearance. Be precise, e.g., 24, 31, 45${userAge ? `. Compare to user's actual age of ${userAge}` : ''}),
+  "skin_age_comparison": string (${userAge ? `comparison to actual age ${userAge}, e.g., "3 years younger than your actual age" or "5 years older than your actual age" or "matches your actual age"` : 'general assessment like "appears youthful" or "shows signs of premature aging"'}),
+  "skin_age_confidence": int 0-100 (confidence in the skin age estimate based on photo clarity and visible aging indicators),
 
   "breakout_level": "none"|"minimal"|"moderate"|"high"|"unknown",
   "acne_prone_level": "none"|"minimal"|"moderate"|"high"|"unknown",
@@ -347,7 +498,7 @@ Return a strict JSON object with the following structure:
   "pore_health": int 0-100 (GRANULAR),
 
   "summary": { 
-    "notes": string (detailed 3-5 sentence analysis mentioning specific findings from all 3 photos - front, left, and right views${validatedContext ? ", and incorporating the user's provided context" : ""})
+    "notes": string (detailed 3-5 sentence analysis mentioning specific findings from all 3 photos - front, left, and right views${validatedContext ? ", and incorporating the user's provided context" : ""}${userAge ? `, and how the skin age compares to the user's actual age of ${userAge}` : ""})
   },
   
   "issues": [ 
@@ -882,6 +1033,7 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
     ];
     const payload = {
       model: "gpt-5-mini",
+      max_completion_tokens: 16384,
       response_format: {
         type: "json_object"
       },
@@ -916,18 +1068,28 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
     }
     const out = await ai.json();
     const text = out?.choices?.[0]?.message?.content ?? "{}";
-    let parsed = {};
+    console.log(`OpenAI response finish_reason: ${out?.choices?.[0]?.finish_reason}, content length: ${text.length}`);
+    if (!text || text === "{}" || text.trim() === "") {
+      console.error("OpenAI returned empty or blank content. Full response:", JSON.stringify(out).slice(0, 500));
+      throw new Error("AI analysis returned empty response. Please try again.");
+    }
+    let parsed: Record<string, any> = {};
     try {
       parsed = JSON.parse(text);
-    } catch  {
-      parsed = {};
+    } catch (parseErr) {
+      console.error("Failed to parse OpenAI JSON. First 500 chars:", text.slice(0, 500));
+      throw new Error("AI analysis returned invalid response. Please try again.");
+    }
+    if (parsed.skin_score === undefined || parsed.skin_score === null) {
+      console.error("Parsed JSON missing skin_score. Keys found:", Object.keys(parsed).join(", "));
+      throw new Error("AI analysis returned incomplete response. Please try again.");
     }
     // --- Sanitize overlays: ensure valid structure, filter nulls/undefined
-    const sanitizeOverlays = (overlays)=>{
+    const sanitizeOverlays = (overlays: Record<string, any>)=>{
       if (!overlays || typeof overlays !== 'object') {
         return {};
       }
-      const result = {};
+      const result: Record<string, Record<string, number[][][]>> = {};
       const views = [
         'front',
         'left',
@@ -977,6 +1139,9 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       skin_potential: parsed.skin_potential ?? null,
       skin_health_percent: parsed.skin_health_percent ?? null,
       skin_type: parsed.skin_type ?? "unknown",
+      skin_age: parsed.skin_age ?? null,
+      skin_age_comparison: parsed.skin_age_comparison ?? null,
+      skin_age_confidence: parsed.skin_age_confidence ?? null,
       breakout_level: parsed.breakout_level ?? "unknown",
       acne_prone_level: parsed.acne_prone_level ?? "unknown",
       scarring_level: parsed.scarring_level ?? "unknown",
@@ -999,17 +1164,20 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       ok: true
     });
   } catch (e) {
-    // Best-effort mark failed
+    // Best-effort mark scan as failed
     if (scanId) {
       try {
         await sb.from("scan_sessions").update({
           status: "failed"
         }).eq("id", scanId);
-      } catch  {}
+      } catch  { /* scan status update failed, continue */ }
     }
+    // --- SECURITY: Log internal error but return generic message to client ---
+    // Never expose internal error details to the client (OWASP A09:2021)
+    console.error("[analyze-image] Internal error:", e);
     return json({
       ok: false,
-      error: String(e)
+      error: "An error occurred during skin analysis. Please try again."
     }, 500);
   }
 });

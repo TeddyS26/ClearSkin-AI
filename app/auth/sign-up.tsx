@@ -33,7 +33,6 @@ export default function SignUp() {
         router.replace("/subscribe");
       } else {
         // Email confirmation required - redirect to check email screen
-        // @ts-ignore - route exists but not in generated types yet
         router.replace({ pathname: "/auth/check-email", params: { email: email.trim() } });
       }
     } catch (e: any) {
@@ -70,6 +69,7 @@ export default function SignUp() {
       <ScrollView 
         className="flex-1" 
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 }}
+        keyboardShouldPersistTaps="handled"
       >
         <View className="bg-white rounded-3xl p-8 shadow-lg">
           <View className="mb-8">

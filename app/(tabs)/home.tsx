@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { Link, useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
 import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings } from "lucide-react-native";
 import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
-import { hasActiveSubscription } from "../../src/lib/billing";
+import { hasActiveSubscription, canScan } from "../../src/lib/billing";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -64,6 +64,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [canStartScan, setCanStartScan] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -72,9 +73,12 @@ export default function Home() {
       setLatestScan(scans[0] || null);
       setPreviousScan(scans[1] || null);
       
-      // Check subscription status
+      // Check subscription status and scan ability
       const subStatus = await hasActiveSubscription();
       setHasSubscription(subStatus);
+      const scanAllowed = await canScan();
+      setCanStartScan(scanAllowed);
+      
       setCheckingSubscription(false);
     } catch (error) {
       setCheckingSubscription(false);
@@ -91,11 +95,20 @@ export default function Home() {
     })();
   }, [fetchData]);
 
+  // Refresh data when home tab is focused (e.g., after completing a scan)
+  useFocusEffect(
+    useCallback(() => {
+      // Refresh data every time the screen comes into focus
+      fetchData();
+    }, [fetchData])
+  );
+
   // Set up real-time subscription for automatic updates
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
+    // Listen to scan_sessions changes
+    const scanChannel = supabase
       .channel('scan_sessions_changes')
       .on(
         'postgres_changes',
@@ -112,8 +125,27 @@ export default function Home() {
       )
       .subscribe();
 
+    // Listen to user_profiles changes (for free scan status updates)
+    const profileChannel = supabase
+      .channel('user_profiles_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_profiles',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          // When profile is updated (e.g., free scan used), refresh the data
+          fetchData();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(scanChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, [user, fetchData]);
 
@@ -178,7 +210,7 @@ export default function Home() {
           {!checkingSubscription && !hasSubscription && (
             <Pressable
               onPress={() => router.push("/subscribe")}
-              className="bg-gradient-to-r bg-emerald-500 rounded-2xl p-4 mb-6 shadow-sm active:opacity-90"
+              className="bg-gradient-to-r bg-emerald-500 rounded-2xl p-4 mb-4 shadow-sm active:opacity-90"
               android_ripple={{ color: "#059669" }}
             >
               <View className="flex-row items-center">
@@ -198,6 +230,55 @@ export default function Home() {
                 </View>
               </View>
             </Pressable>
+          )}
+
+          {/* Free Scan Status Banner */}
+          {!checkingSubscription && !hasSubscription && (
+            <View className={`rounded-2xl p-4 mb-6 border ${
+              canStartScan 
+                ? "bg-emerald-50 border-emerald-200" 
+                : "bg-gray-100 border-gray-200"
+            }`}>
+              <View className="flex-row items-center">
+                <View className={`w-12 h-12 rounded-full items-center justify-center mr-3 ${
+                  canStartScan ? "bg-emerald-100" : "bg-gray-200"
+                }`}>
+                  {canStartScan ? (
+                    <Camera size={22} color="#10B981" strokeWidth={2} />
+                  ) : (
+                    <Lock size={22} color="#6B7280" strokeWidth={2} />
+                  )}
+                </View>
+                <View className="flex-1">
+                  <Text className={`font-bold text-base ${
+                    canStartScan ? "text-emerald-700" : "text-gray-700"
+                  }`}>
+                    {canStartScan 
+                      ? "Free Trial Available!" 
+                      : "Free Trial Used"}
+                  </Text>
+                  <Text className={`text-sm ${
+                    canStartScan ? "text-emerald-600" : "text-gray-500"
+                  }`}>
+                    {canStartScan 
+                      ? "You have 1 free scan to try ClearSkin AI" 
+                      : "Subscribe to unlock unlimited scans"}
+                  </Text>
+                </View>
+                {canStartScan ? (
+                  <View className="bg-emerald-500 px-3 py-1.5 rounded-full">
+                    <Text className="text-white text-xs font-bold">READY</Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => router.push("/subscribe")}
+                    className="bg-emerald-500 px-3 py-1.5 rounded-full active:opacity-80"
+                  >
+                    <Text className="text-white text-xs font-bold">UPGRADE</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
           )}
 
           {/* Header */}
@@ -291,12 +372,18 @@ export default function Home() {
                       {latestScan.skin_potential ?? "—"}%
                     </Text>
                   </View>
-                  <View className="flex-1 bg-gray-50 rounded-2xl p-4">
+                  {/* Skin Type - locked for free tier */}
+                  <View className="flex-1 bg-gray-50 rounded-2xl p-4 relative">
+                    {!hasSubscription && (
+                      <View className="absolute inset-0 bg-gray-100/90 rounded-2xl items-center justify-center z-10">
+                        <Lock size={16} color="#9CA3AF" />
+                      </View>
+                    )}
                     <Text className="text-gray-600 text-xs mb-1">
                       Skin Type
                     </Text>
                     <Text className="text-gray-900 text-xl font-bold capitalize">
-                      {latestScan.skin_type ?? "Normal"}
+                      {hasSubscription ? (latestScan.skin_type ?? "Normal") : "—"}
                     </Text>
                   </View>
                 </View>
@@ -323,31 +410,31 @@ export default function Home() {
             </View>
           ) : (
             <Pressable 
-              onPress={() => hasSubscription ? router.push("/scan/capture") : router.push("/subscribe")}
+              onPress={() => canStartScan ? router.push("/scan/capture") : router.push("/subscribe")}
               className={`rounded-3xl py-4 mb-6 flex-row items-center justify-center shadow-sm ${
-                hasSubscription 
+                canStartScan 
                   ? "bg-emerald-500 active:opacity-90" 
                   : "bg-gray-300 active:opacity-90"
               }`}
-              android_ripple={{ color: hasSubscription ? "#059669" : "#D1D5DB" }}
+              android_ripple={{ color: canStartScan ? "#059669" : "#D1D5DB" }}
             >
               <View style={{ marginRight: 10 }}>
-                {hasSubscription ? (
+                {canStartScan ? (
                   <Camera size={22} color="white" strokeWidth={2} />
                 ) : (
                   <Lock size={22} color="#9CA3AF" strokeWidth={2} />
                 )}
               </View>
               <Text className={`text-base font-semibold ${
-                hasSubscription ? "text-white" : "text-gray-500"
+                canStartScan ? "text-white" : "text-gray-500"
               }`}>
-                {hasSubscription ? "Take a New Scan" : "Subscribe to Scan"}
+                {canStartScan ? (hasSubscription ? "Take a New Scan" : "Start Free Scan") : "Subscribe to Scan"}
               </Text>
             </Pressable>
           )}
 
-          {/* Quick Insights */}
-          {latestScan && (
+          {/* Quick Insights - Only show for subscribers */}
+          {latestScan && hasSubscription && (
             <View>
               <Text className="text-gray-900 text-lg font-bold mb-4">
                 Quick Insights
@@ -416,6 +503,11 @@ export default function Home() {
               )}
             </View>
           )}
+
+          {/* Medical Disclaimer */}
+          <Text className="text-xs text-gray-400 text-center mt-6 mb-2">
+            This is not medical advice. Consult a healthcare professional for diagnosis or treatment.
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

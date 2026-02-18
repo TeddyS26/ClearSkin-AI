@@ -15,7 +15,6 @@ export default function SignIn() {
 
   useEffect(() => {
     if (!loading && user) {
-      // @ts-ignore - route exists but not in generated types yet
       router.replace("/subscribe");
     }
   }, [loading, user]);
@@ -39,6 +38,7 @@ export default function SignIn() {
       <ScrollView 
         className="flex-1" 
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 }}
+        keyboardShouldPersistTaps="handled"
       >
         <View className="bg-white rounded-3xl p-8 shadow-lg">
           <View className="mb-8">
