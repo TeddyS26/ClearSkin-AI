@@ -9,7 +9,7 @@
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
   [![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB)](https://reactnative.dev/)
   [![Expo](https://img.shields.io/badge/Expo-~54.0-black)](https://expo.dev/)
-  [![Website](https://img.shields.io/badge/website-clearskinai.ca-10B981)](https://clearskinai.ca)
+  [![Website](https://img.shields.io/badge/website-clearskinai.ca-10B981)](https://www.clearskinai.ca/)
 </div>
 
 ---
