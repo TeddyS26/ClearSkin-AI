@@ -364,6 +364,76 @@ Deno.serve(async (req: Request) => {
         break;
       }
 
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        // invoice.subscription can be a string ID, expanded object, or null
+        // For default_incomplete subscriptions, the initial invoice may have
+        // subscription as null in the webhook payload; that's expected
+        const subscriptionId = typeof invoice.subscription === "string"
+          ? invoice.subscription
+          : (invoice.subscription as any)?.id ?? null;
+
+        if (!subscriptionId) {
+          console.log(`ℹ️ ${event.type}: no subscription on invoice ${invoice.id}, skipping`);
+          break;
+        }
+
+        console.log(`💰 Processing ${event.type} for subscription:`, subscriptionId);
+
+        // Fetch the latest subscription state from Stripe
+        const latestSub = await stripe.subscriptions.retrieve(subscriptionId);
+        const invoiceUserId = latestSub.metadata?.supabase_user_id || null;
+
+        let resolvedUserId = invoiceUserId;
+
+        // Fallback: look up user from billing_customers
+        if (!resolvedUserId && typeof latestSub.customer === "string") {
+          const { data: bc } = await sb
+            .from("billing_customers")
+            .select("user_id")
+            .eq("stripe_customer_id", latestSub.customer)
+            .maybeSingle();
+          resolvedUserId = bc?.user_id || null;
+        }
+
+        if (!resolvedUserId) {
+          console.error("❌ No user_id found for invoice subscription:", subscriptionId);
+          break;
+        }
+
+        if (!isValidUUID(resolvedUserId)) {
+          console.error("❌ Invalid user_id format in invoice handler:", resolvedUserId);
+          break;
+        }
+
+        const invoiceMappedStatus = mapSubscriptionStatus(latestSub.status, event.type);
+        const invoicePeriodStart = new Date((latestSub.current_period_start ?? 0) * 1000).toISOString();
+        const invoicePeriodEnd = new Date((latestSub.current_period_end ?? 0) * 1000).toISOString();
+
+        const { error: invoiceUpsertError } = await sb
+          .from("subscriptions")
+          .upsert({
+            user_id: resolvedUserId,
+            stripe_subscription_id: subscriptionId,
+            plan_code: "unlimited",
+            weekly_limit: 100000,
+            status: invoiceMappedStatus,
+            current_period_start: invoicePeriodStart,
+            current_period_end: invoicePeriodEnd,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'stripe_subscription_id'
+          });
+
+        if (invoiceUpsertError) {
+          console.error("❌ Error upserting subscription from invoice event:", invoiceUpsertError);
+        } else {
+          console.log(`✅ Subscription updated from ${event.type}: status=${invoiceMappedStatus}`);
+        }
+        break;
+      }
+
       default:
         console.log(`ℹ️ Unhandled event type: ${event.type}`);
     }

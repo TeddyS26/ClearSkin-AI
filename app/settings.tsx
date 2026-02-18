@@ -320,7 +320,7 @@ export default function Settings() {
           if (sub.stripe_subscription_id) {
             try {
               await supabase.functions.invoke('cancel-subscription', {
-                body: { subscriptionId: sub.stripe_subscription_id },
+                body: { subscriptionId: sub.stripe_subscription_id, immediate: true },
                 headers: {
                   Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
                 },

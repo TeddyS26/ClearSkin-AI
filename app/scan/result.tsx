@@ -189,7 +189,7 @@ export default function Result() {
         </View>
 
         {/* Skin Age Card - New Feature */}
-        {row.skin_age && (
+        {row.skin_age != null && (
           <View className="bg-white rounded-3xl p-6 shadow-sm mb-4 border border-gray-100 relative">
             {isFreeTier && (
               <View className="absolute inset-0 bg-white/90 rounded-3xl items-center justify-center z-10">
@@ -210,7 +210,7 @@ export default function Result() {
                 <Text className="text-sm text-emerald-700">years</Text>
               </View>
               
-              {!isFreeTier && row.skin_age_comparison && (
+              {!isFreeTier && !!row.skin_age_comparison && (
                 <View className={`px-4 py-2 rounded-full ${
                   row.skin_age_comparison.includes('younger') 
                     ? 'bg-emerald-100' 
@@ -230,7 +230,7 @@ export default function Result() {
                 </View>
               )}
               
-              {!isFreeTier && row.skin_age_confidence && (
+              {!isFreeTier && row.skin_age_confidence != null && (
                 <Text className="text-xs text-gray-500 mt-3">
                   Confidence: {row.skin_age_confidence}%
                 </Text>
@@ -493,7 +493,8 @@ export default function Result() {
         {/* Medical Disclaimer */}
         <Text className="text-xs text-gray-400 text-center mt-6 mb-2 px-4">
           This is not medical advice. Consult a healthcare professional for diagnosis or treatment.
-        </Text>      </View>
+        </Text>
+      </View>
       </ScrollView>
     </SafeAreaView>
   );

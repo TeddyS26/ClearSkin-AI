@@ -23,6 +23,9 @@ export default function ScanLayout() {
           fullScreenGestureEnabled: false,
         }}
       />
+      <Stack.Screen 
+        name="compare" 
+      />
     </Stack>
   );
 }

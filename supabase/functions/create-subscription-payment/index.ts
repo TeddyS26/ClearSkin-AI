@@ -140,6 +140,30 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Check if user already has an active subscription to prevent duplicates
+    const { data: existingSubs } = await sb
+      .from("subscriptions")
+      .select("stripe_subscription_id, status, current_period_end")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1);
+
+    if (existingSubs && existingSubs.length > 0) {
+      const activeSub = existingSubs[0];
+      // Verify it's not expired
+      const isStillActive = !activeSub.current_period_end || 
+        new Date(activeSub.current_period_end) >= new Date();
+      
+      if (isStillActive) {
+        return errorResponse(
+          "You already have an active subscription. Manage it from Settings.",
+          409,
+          "ALREADY_SUBSCRIBED",
+          corsHeaders
+        );
+      }
+    }
+
     // Create subscription with incomplete payment (collects payment method first)
     const subscription = await stripe.subscriptions.create({
       customer: customerId,

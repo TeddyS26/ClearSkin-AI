@@ -101,19 +101,21 @@ Deno.serve(async (req: Request) => {
     // --- BUSINESS LOGIC: Authorization Checks ---
 
     // 1) Check active subscription with remaining weekly scans
-    const { data: subscription } = await sb
+    // Use .order().limit(1) instead of .maybeSingle() to avoid errors
+    // when multiple active subscription rows exist for the same user
+    const { data: subscriptions } = await sb
       .from("subscriptions")
       .select("*")
       .eq("user_id", user.id)
       .eq("status", "active")
-      .maybeSingle();
+      .order("current_period_end", { ascending: false })
+      .limit(1);
 
-    // Verify subscription period hasn't expired
-    // (handles gap between period end and Stripe webhook firing)
-    const isSubscriptionValid = subscription && (
-      !subscription.current_period_end ||
-      new Date(subscription.current_period_end) >= new Date()
-    );
+    const subscription = subscriptions?.[0] ?? null;
+
+    // Trust the status field — the Stripe webhook keeps it in sync.
+    // When a subscription expires/cancels, the webhook sets status accordingly.
+    const isSubscriptionValid = !!subscription;
 
     const { data: weeklyScans } = await sb
       .from("scans_this_week")

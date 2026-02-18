@@ -278,8 +278,11 @@ describe('billing.ts', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: mockSubscription
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue({
+                  data: [mockSubscription],
+                  error: null
+                })
               })
             })
           })
@@ -303,8 +306,11 @@ describe('billing.ts', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: null
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue({
+                  data: [],
+                  error: null
+                })
               })
             })
           })
@@ -345,8 +351,9 @@ describe('billing.ts', () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: mockSubscription
+            order: jest.fn().mockResolvedValue({
+              data: [mockSubscription],
+              error: null
             })
           })
         })
@@ -368,8 +375,9 @@ describe('billing.ts', () => {
       (supabase.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
-            maybeSingle: jest.fn().mockResolvedValue({
-              data: null
+            order: jest.fn().mockResolvedValue({
+              data: [],
+              error: null
             })
           })
         })
@@ -494,8 +502,11 @@ describe('billing.ts', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: { id: 'sub-123', status: 'active' }
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue({
+                  data: [{ id: 'sub-123', status: 'active' }],
+                  error: null
+                })
               })
             }),
             maybeSingle: jest.fn().mockResolvedValue({
@@ -516,7 +527,7 @@ describe('billing.ts', () => {
         data: { user: mockUser }
       });
       
-      // Mock for hasActiveSubscription (returns null = no subscription)
+      // Mock for hasActiveSubscription (returns empty = no subscription)
       // Mock for hasUsedFreeTrial (returns null = never used)
       let callCount = 0;
       (supabase.from as jest.Mock).mockImplementation((table: string) => {
@@ -525,7 +536,9 @@ describe('billing.ts', () => {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
                 eq: jest.fn().mockReturnValue({
-                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                  order: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue({ data: [], error: null })
+                  })
                 })
               })
             })
@@ -569,7 +582,9 @@ describe('billing.ts', () => {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
                 eq: jest.fn().mockReturnValue({
-                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                  order: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue({ data: [], error: null })
+                  })
                 })
               })
             })
@@ -611,8 +626,11 @@ describe('billing.ts', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             eq: jest.fn().mockReturnValue({
-              maybeSingle: jest.fn().mockResolvedValue({
-                data: { id: 'sub-123', status: 'active' }
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue({
+                  data: [{ id: 'sub-123', status: 'active' }],
+                  error: null
+                })
               })
             })
           })
@@ -636,7 +654,9 @@ describe('billing.ts', () => {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
                 eq: jest.fn().mockReturnValue({
-                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                  order: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue({ data: [], error: null })
+                  })
                 })
               })
             })
@@ -680,7 +700,9 @@ describe('billing.ts', () => {
             select: jest.fn().mockReturnValue({
               eq: jest.fn().mockReturnValue({
                 eq: jest.fn().mockReturnValue({
-                  maybeSingle: jest.fn().mockResolvedValue({ data: null })
+                  order: jest.fn().mockReturnValue({
+                    limit: jest.fn().mockResolvedValue({ data: [], error: null })
+                  })
                 })
               })
             })

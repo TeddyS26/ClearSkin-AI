@@ -161,43 +161,54 @@ export function configureLinking() {
 }
 
 // Check if user has an active subscription
-// A subscription is active only if status is "active" AND the current period hasn't expired
+// Trusts the subscription status field, which is kept in sync by the Stripe webhook.
+// When Stripe renews/cancels/pauses a subscription, the webhook updates the status accordingly.
 export async function hasActiveSubscription() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
   
-  const { data: sub } = await supabase
+  // Use .limit(1) + order instead of .maybeSingle() to avoid silent errors
+  // when multiple subscription records exist for the same user
+  const { data: subs, error } = await supabase
     .from("subscriptions")
     .select("*")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .maybeSingle();
+    .order("current_period_end", { ascending: false })
+    .limit(1);
   
-  if (!sub) return false;
-
-  // Verify the subscription period hasn't expired
-  // (handles the gap between period end and Stripe webhook firing)
-  if (sub.current_period_end) {
-    const periodEnd = new Date(sub.current_period_end);
-    if (periodEnd < new Date()) {
-      return false;
-    }
+  if (error) {
+    console.error("Error checking subscription:", error);
+    return false;
   }
 
-  return true;
+  const sub = subs?.[0];
+  return !!sub;
 }
 
 // Get user's subscription status details
+// Returns the most relevant subscription (prioritizes active/trialing, then most recent)
 export async function getSubscriptionStatus() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
   
-  const { data: sub } = await supabase
+  // Fetch all subscriptions for the user to avoid .maybeSingle() errors
+  // when multiple records exist (e.g., past canceled + current active)
+  const { data: subs, error } = await supabase
     .from("subscriptions")
     .select("*")
     .eq("user_id", user.id)
-    .maybeSingle();
+    .order("current_period_end", { ascending: false });
   
-  return sub;
+  if (error) {
+    console.error("Error fetching subscription status:", error);
+    return null;
+  }
+
+  if (!subs || subs.length === 0) return null;
+
+  // Prioritize active or trialing subscriptions
+  const activeSub = subs.find(s => s.status === "active" || s.status === "trialing");
+  return activeSub || subs[0];
 }
 

@@ -63,6 +63,10 @@ const requestSchema = {
     minLength: 10,
     maxLength: 100,
     pattern: /^sub_[a-zA-Z0-9]+$/  // Stripe subscription ID format
+  },
+  immediate: {
+    type: 'boolean' as const,
+    required: false
   }
 };
 
@@ -149,7 +153,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { subscriptionId } = validation.sanitized as { subscriptionId: string };
+    const { subscriptionId, immediate } = validation.sanitized as { subscriptionId: string; immediate?: boolean };
 
     // --- SECURITY: Verify ownership before cancellation ---
     // User can only cancel their own subscription
@@ -179,9 +183,37 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // --- BUSINESS LOGIC: Cancel Subscription at Period End ---
-    
-    // Mark the subscription to cancel at the end of the current billing period.
+    // --- BUSINESS LOGIC: Cancel Subscription ---
+
+    if (immediate) {
+      // Immediate cancellation (e.g., account deletion).
+      // Cancels the subscription right now — no remaining access.
+      const canceledSubscription = await stripe.subscriptions.cancel(subscriptionId);
+
+      // Update local DB immediately so there's no window for re-use
+      await supabase
+        .from("subscriptions")
+        .update({
+          status: "canceled",
+          updated_at: new Date().toISOString()
+        })
+        .eq("stripe_subscription_id", subscriptionId);
+
+      console.log(`Subscription ${subscriptionId} immediately canceled for user ${user.id}`);
+
+      return successResponse({
+        success: true,
+        message: "Subscription has been immediately cancelled",
+        subscription: {
+          id: canceledSubscription.id,
+          status: canceledSubscription.status,
+          cancelAtPeriodEnd: false,
+          currentPeriodEnd: canceledSubscription.current_period_end
+        }
+      }, 200, corsHeaders);
+    }
+
+    // Graceful cancellation — cancel at the end of the current billing period.
     // The user retains premium access until their paid period expires,
     // then Stripe fires customer.subscription.deleted and access is revoked.
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
