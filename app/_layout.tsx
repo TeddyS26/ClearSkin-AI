@@ -23,24 +23,31 @@ export default function RootLayout() {
   // Note: Back button prevention is now handled per-screen (e.g., review, loading)
   // rather than globally, to allow natural navigation where appropriate
 
+  const stripePublishableKey: string =
+    process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST || "";
+
+  const appContent = (
+    <>
+      <StatusBar style="dark" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          gestureEnabled: false, // Disable iOS swipe back gesture globally
+          fullScreenGestureEnabled: false, // Disable full screen gesture on iOS
+          animation: "default",
+        }}
+      />
+    </>
+  );
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <StripeProvider
-          publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST || ""}
+          publishableKey={stripePublishableKey}
           merchantIdentifier="merchant.com.clearskin.ai" // For Apple Pay (optional)
         >
-          <AuthProvider>
-            <StatusBar style="dark" />
-            <Stack 
-              screenOptions={{ 
-                headerShown: false,
-                gestureEnabled: false, // Disable iOS swipe back gesture globally
-                fullScreenGestureEnabled: false, // Disable full screen gesture on iOS
-                animation: 'default',
-              }} 
-            />
-          </AuthProvider>
+          <AuthProvider>{appContent}</AuthProvider>
         </StripeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

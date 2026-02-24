@@ -166,20 +166,22 @@ Deno.serve(async (req: Request) => {
       }, 200, corsHeaders);
     }
 
-    // 3) Check free trial eligibility (first completed scan)
+    // 3) Check free trial eligibility (up to 3 free scans per account)
+    const FREE_SCAN_LIMIT = 3;
     const { data: existingScans, error: scanError } = await sb
       .from("scan_sessions")
       .select("id")
       .eq("user_id", user.id)
       .eq("status", "complete")
       .not("skin_score", "is", null)
-      .limit(1);
+      .limit(FREE_SCAN_LIMIT);
 
-    if (!scanError && (!existingScans || existingScans.length === 0)) {
+    const completedCount = existingScans?.length ?? 0;
+    if (!scanError && completedCount < FREE_SCAN_LIMIT) {
       return successResponse({
         allowed: true,
         reason: "free_trial",
-        remaining: 0,
+        remaining: FREE_SCAN_LIMIT - completedCount - 1,
         isFreeTier: true
       }, 200, corsHeaders);
     }

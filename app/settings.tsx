@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal, StatusBar, Platform } from "react-native";
+import { useState, useEffect, useCallback } from "react";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, TextInput, Modal, StatusBar, Switch, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
@@ -20,10 +20,23 @@ import {
   MessageSquare,
   Calendar,
   UserCircle,
-  AlertCircle
+  AlertCircle,
+  Bell,
+  Clock
 } from "lucide-react-native";
 import { openBillingPortal, getSubscriptionStatus } from "../src/lib/billing";
 import { supabase } from "../src/lib/supabase";
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  scheduleScanReminder,
+  scheduleRoutineReminders,
+  cancelScanReminders,
+  cancelRoutineReminders,
+  hasNotificationPermission,
+  registerForPushNotifications,
+} from "../src/lib/notifications";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 type UserProfile = {
   date_of_birth: string | null;
@@ -57,10 +70,54 @@ export default function Settings() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
 
+  // Notification state
+  const [scanReminders, setScanReminders] = useState(true);
+  const [routineReminders, setRoutineReminders] = useState(false);
+  const [insightsNotifications, setInsightsNotifications] = useState(true);
+  const [notifLoading, setNotifLoading] = useState(true);
+
+  // Routine reminder time state
+  const [amHour, setAmHour] = useState(8);
+  const [amMinute, setAmMinute] = useState(0);
+  const [pmHour, setPmHour] = useState(21);
+  const [pmMinute, setPmMinute] = useState(0);
+  const [showTimePicker, setShowTimePicker] = useState<'am' | 'pm' | 'scan' | null>(null);
+
+  // Scan reminder time state
+  const [scanDay, setScanDay] = useState(1); // 1=Sunday
+  const [scanHour, setScanHour] = useState(10);
+  const [scanMinute, setScanMinute] = useState(0);
+  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [pickerDate, setPickerDate] = useState(new Date());
+
   useEffect(() => {
     loadSubscriptionStatus();
     loadUserProfile();
+    loadNotificationPrefs();
   }, []);
+
+  async function loadNotificationPrefs() {
+    try {
+      setNotifLoading(true);
+      const prefs = await getNotificationPreferences();
+      if (prefs) {
+        setScanReminders(prefs.scan_reminders ?? true);
+        setRoutineReminders(prefs.routine_reminders ?? false);
+        setInsightsNotifications(prefs.insights_notifications ?? true);
+        setAmHour(prefs.routine_am_hour ?? 8);
+        setAmMinute(prefs.routine_am_minute ?? 0);
+        setPmHour(prefs.routine_pm_hour ?? 21);
+        setPmMinute(prefs.routine_pm_minute ?? 0);
+        setScanDay(prefs.scan_reminder_day ?? 1);
+        setScanHour(prefs.scan_reminder_hour ?? 10);
+        setScanMinute(prefs.scan_reminder_minute ?? 0);
+      }
+    } catch (error) {
+      console.error("Error loading notification preferences:", error);
+    } finally {
+      setNotifLoading(false);
+    }
+  }
 
   async function loadUserProfile() {
     try {
@@ -109,7 +166,7 @@ export default function Settings() {
 
       // If no subscription found, let's check the database directly
       if (!sub && currentUser) {
-        const { data: allSubs, error } = await supabase
+        const { data: allSubs } = await supabase
           .from("subscriptions")
           .select("*")
           .eq("user_id", currentUser.id)
@@ -378,7 +435,121 @@ export default function Settings() {
   };
 
   const openContact = () => {
-    router.push("/contact" as any);
+    router.push("/contact");
+  };
+
+  const handleToggleScanReminders = async (value: boolean) => {
+    setScanReminders(value);
+    const hasPerm = await hasNotificationPermission();
+    if (value && !hasPerm) {
+      const token = await registerForPushNotifications();
+      if (!token) {
+        setScanReminders(false);
+        Alert.alert("Notifications Disabled", "Please enable notifications in your device settings to receive scan reminders.");
+        return;
+      }
+    }
+    await updateNotificationPreferences({ scan_reminders: value });
+    if (value) {
+      await scheduleScanReminder(scanDay, scanHour, scanMinute);
+    } else {
+      await cancelScanReminders();
+    }
+  };
+
+  const handleToggleRoutineReminders = async (value: boolean) => {
+    setRoutineReminders(value);
+    const hasPerm = await hasNotificationPermission();
+    if (value && !hasPerm) {
+      const token = await registerForPushNotifications();
+      if (!token) {
+        setRoutineReminders(false);
+        Alert.alert("Notifications Disabled", "Please enable notifications in your device settings to receive routine reminders.");
+        return;
+      }
+    }
+    await updateNotificationPreferences({ routine_reminders: value });
+    if (value) {
+      await scheduleRoutineReminders(amHour, amMinute, pmHour, pmMinute);
+    } else {
+      await cancelRoutineReminders();
+    }
+  };
+
+  const formatTime = (hour: number, minute: number): string => {
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+  };
+
+  const handleTimeSelect = async (hour: number, minute: number) => {
+    if (showTimePicker === 'am') {
+      setAmHour(hour);
+      setAmMinute(minute);
+      await updateNotificationPreferences({
+        routine_am_hour: hour,
+        routine_am_minute: minute,
+      });
+      if (routineReminders) {
+        await scheduleRoutineReminders(hour, minute, pmHour, pmMinute);
+      }
+    } else if (showTimePicker === 'pm') {
+      setPmHour(hour);
+      setPmMinute(minute);
+      await updateNotificationPreferences({
+        routine_pm_hour: hour,
+        routine_pm_minute: minute,
+      });
+      if (routineReminders) {
+        await scheduleRoutineReminders(amHour, amMinute, hour, minute);
+      }
+    } else if (showTimePicker === 'scan') {
+      setScanHour(hour);
+      setScanMinute(minute);
+      await updateNotificationPreferences({
+        scan_reminder_hour: hour,
+        scan_reminder_minute: minute,
+      });
+      if (scanReminders) {
+        await scheduleScanReminder(scanDay, hour, minute);
+      }
+    }
+    setShowTimePicker(null);
+  };
+
+  const handleScanDayChange = async (day: number) => {
+    setScanDay(day);
+    setShowDayPicker(false);
+    await updateNotificationPreferences({ scan_reminder_day: day });
+    if (scanReminders) {
+      await scheduleScanReminder(day, scanHour, scanMinute);
+    }
+  };
+
+  const DAY_NAMES = ['', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const DAY_NAMES_SHORT = ['', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const openTimePicker = (type: 'am' | 'pm' | 'scan') => {
+    const d = new Date();
+    if (type === 'am') { d.setHours(amHour, amMinute, 0, 0); }
+    else if (type === 'pm') { d.setHours(pmHour, pmMinute, 0, 0); }
+    else { d.setHours(scanHour, scanMinute, 0, 0); }
+    setPickerDate(d);
+    setShowTimePicker(type);
+  };
+
+  const handleToggleInsights = async (value: boolean) => {
+    setInsightsNotifications(value);
+    const hasPerm = await hasNotificationPermission();
+    if (value && !hasPerm) {
+      const token = await registerForPushNotifications();
+      if (!token) {
+        setInsightsNotifications(false);
+        Alert.alert("Notifications Disabled", "Please enable notifications in your device settings.");
+        return;
+      }
+    }
+    await updateNotificationPreferences({ insights_notifications: value });
   };
 
   const handleExportData = async () => {
@@ -801,6 +972,154 @@ export default function Settings() {
             )}
           </View>
 
+          {/* Notifications Section */}
+          <View className="mb-6">
+            <Text className="text-gray-900 text-lg font-bold mb-3">
+              Notifications
+            </Text>
+
+            {notifLoading ? (
+              <View className="bg-white rounded-2xl p-6 items-center shadow-sm">
+                <ActivityIndicator size="small" color="#10B981" />
+              </View>
+            ) : (
+              <View className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                {/* Scan Reminders */}
+                <View className="px-4 py-4 border-b border-gray-100">
+                  <View className="flex-row items-center">
+                    <View className="w-10 h-10 bg-emerald-100 rounded-xl items-center justify-center mr-3">
+                      <Bell size={20} color="#10B981" strokeWidth={2} />
+                    </View>
+                    <View className="flex-1 mr-3">
+                      <Text className="text-base font-semibold text-gray-900 mb-0.5">
+                        Scan Reminders
+                      </Text>
+                      <Text className="text-xs text-gray-500">
+                        Weekly reminder to track your skin
+                      </Text>
+                    </View>
+                    <Switch
+                      value={scanReminders}
+                      onValueChange={handleToggleScanReminders}
+                      trackColor={{ false: "#D1D5DB", true: "#6EE7B7" }}
+                      thumbColor={scanReminders ? "#10B981" : "#F3F4F6"}
+                    />
+                  </View>
+
+                  {/* Day & time selection - only show when enabled */}
+                  {scanReminders && (
+                    <View className="mt-3 ml-13 pl-0.5">
+                      <View className="flex-row items-center gap-3">
+                        {/* Day Picker Button */}
+                        <Pressable
+                          onPress={() => setShowDayPicker(true)}
+                          className="flex-1 flex-row items-center bg-emerald-50 rounded-xl px-3 py-2.5 active:opacity-80"
+                        >
+                          <Calendar size={14} color="#10B981" strokeWidth={2} />
+                          <View className="ml-2 flex-1">
+                            <Text className="text-[10px] text-emerald-400 font-medium">Day</Text>
+                            <Text className="text-sm font-semibold text-emerald-700">{DAY_NAMES_SHORT[scanDay]}</Text>
+                          </View>
+                          <ChevronRight size={14} color="#6EE7B7" strokeWidth={2} />
+                        </Pressable>
+
+                        {/* Time Picker Button */}
+                        <Pressable
+                          onPress={() => openTimePicker('scan')}
+                          className="flex-1 flex-row items-center bg-emerald-50 rounded-xl px-3 py-2.5 active:opacity-80"
+                        >
+                          <Clock size={14} color="#10B981" strokeWidth={2} />
+                          <View className="ml-2 flex-1">
+                            <Text className="text-[10px] text-emerald-400 font-medium">Time</Text>
+                            <Text className="text-sm font-semibold text-emerald-700">{formatTime(scanHour, scanMinute)}</Text>
+                          </View>
+                          <ChevronRight size={14} color="#6EE7B7" strokeWidth={2} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {/* Routine Reminders */}
+                <View className="px-4 py-4 border-b border-gray-100">
+                  <View className="flex-row items-center">
+                    <View className="w-10 h-10 bg-blue-100 rounded-xl items-center justify-center mr-3">
+                      <Calendar size={20} color="#3B82F6" strokeWidth={2} />
+                    </View>
+                    <View className="flex-1 mr-3">
+                      <Text className="text-base font-semibold text-gray-900 mb-0.5">
+                        Routine Reminders
+                      </Text>
+                      <Text className="text-xs text-gray-500">
+                        Daily AM & PM skincare reminders
+                      </Text>
+                    </View>
+                    <Switch
+                      value={routineReminders}
+                      onValueChange={handleToggleRoutineReminders}
+                      trackColor={{ false: "#D1D5DB", true: "#93C5FD" }}
+                      thumbColor={routineReminders ? "#3B82F6" : "#F3F4F6"}
+                    />
+                  </View>
+
+                  {/* Time selection - only show when enabled */}
+                  {routineReminders && (
+                    <View className="mt-3 ml-13 pl-0.5">
+                      <View className="flex-row items-center gap-3">
+                        {/* AM Time Button */}
+                        <Pressable
+                          onPress={() => openTimePicker('am')}
+                          className="flex-1 flex-row items-center bg-blue-50 rounded-xl px-3 py-2.5 active:opacity-80"
+                        >
+                          <Clock size={14} color="#3B82F6" strokeWidth={2} />
+                          <View className="ml-2 flex-1">
+                            <Text className="text-[10px] text-blue-400 font-medium">AM Reminder</Text>
+                            <Text className="text-sm font-semibold text-blue-700">{formatTime(amHour, amMinute)}</Text>
+                          </View>
+                          <ChevronRight size={14} color="#93C5FD" strokeWidth={2} />
+                        </Pressable>
+
+                        {/* PM Time Button */}
+                        <Pressable
+                          onPress={() => openTimePicker('pm')}
+                          className="flex-1 flex-row items-center bg-indigo-50 rounded-xl px-3 py-2.5 active:opacity-80"
+                        >
+                          <Clock size={14} color="#6366F1" strokeWidth={2} />
+                          <View className="ml-2 flex-1">
+                            <Text className="text-[10px] text-indigo-400 font-medium">PM Reminder</Text>
+                            <Text className="text-sm font-semibold text-indigo-700">{formatTime(pmHour, pmMinute)}</Text>
+                          </View>
+                          <ChevronRight size={14} color="#A5B4FC" strokeWidth={2} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                {/* Insights Notifications */}
+                <View className="flex-row items-center px-4 py-4">
+                  <View className="w-10 h-10 bg-purple-100 rounded-xl items-center justify-center mr-3">
+                    <AlertCircle size={20} color="#8B5CF6" strokeWidth={2} />
+                  </View>
+                  <View className="flex-1 mr-3">
+                    <Text className="text-base font-semibold text-gray-900 mb-0.5">
+                      Insights & Tips
+                    </Text>
+                    <Text className="text-xs text-gray-500">
+                      Skin insights and analysis updates
+                    </Text>
+                  </View>
+                  <Switch
+                    value={insightsNotifications}
+                    onValueChange={handleToggleInsights}
+                    trackColor={{ false: "#D1D5DB", true: "#C4B5FD" }}
+                    thumbColor={insightsNotifications ? "#8B5CF6" : "#F3F4F6"}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
           {/* Security Section */}
           <View className="mb-6">
             <Text className="text-gray-900 text-lg font-bold mb-3">
@@ -1155,6 +1474,133 @@ export default function Settings() {
               </ScrollView>
             </View>
           </View>
+        </Modal>
+
+        {/* Time Picker Modal */}
+        <Modal
+          visible={showTimePicker !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(null)}
+        >
+          <Pressable 
+            onPress={() => setShowTimePicker(null)}
+            className="flex-1 bg-black/50 justify-end"
+          >
+            <Pressable onPress={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl">
+              {/* Header */}
+              <View className="flex-row items-center justify-between px-5 pt-5 pb-2">
+                <Text className="text-lg font-bold text-gray-900">
+                  {showTimePicker === 'am' ? 'Morning Reminder' : showTimePicker === 'pm' ? 'Evening Reminder' : 'Scan Reminder Time'}
+                </Text>
+                <Pressable
+                  onPress={() => setShowTimePicker(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
+                >
+                  <X size={16} color="#374151" strokeWidth={2} />
+                </Pressable>
+              </View>
+
+              <Text className="text-sm text-gray-500 px-5 mb-2">
+                {showTimePicker === 'am' 
+                  ? 'When should we remind you about your morning routine?'
+                  : showTimePicker === 'pm'
+                  ? 'When should we remind you about your evening routine?'
+                  : 'What time should we send your weekly scan reminder?'}
+              </Text>
+
+              {/* Native Time Picker */}
+              <View className="items-center pb-6">
+                <DateTimePicker
+                  value={pickerDate}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  minuteInterval={5}
+                  onChange={(_event, selectedDate) => {
+                    if (Platform.OS === 'android') {
+                      if (_event.type === 'dismissed') {
+                        setShowTimePicker(null);
+                        return;
+                      }
+                      if (selectedDate) {
+                        handleTimeSelect(selectedDate.getHours(), selectedDate.getMinutes());
+                      }
+                    } else {
+                      // iOS: just track the value, save on Done
+                      if (selectedDate) {
+                        setPickerDate(selectedDate);
+                      }
+                    }
+                  }}
+                  themeVariant="light"
+                />
+                {Platform.OS === 'ios' && (
+                  <Pressable
+                    onPress={() => handleTimeSelect(pickerDate.getHours(), pickerDate.getMinutes())}
+                    className="mt-2 bg-emerald-500 rounded-xl px-8 py-3 active:bg-emerald-600"
+                  >
+                    <Text className="text-white font-semibold text-base">Done</Text>
+                  </Pressable>
+                )}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        {/* Day Picker Modal */}
+        <Modal
+          visible={showDayPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDayPicker(false)}
+        >
+          <Pressable 
+            onPress={() => setShowDayPicker(false)}
+            className="flex-1 bg-black/50 justify-end"
+          >
+            <Pressable onPress={(e) => e.stopPropagation()} className="bg-white rounded-t-3xl">
+              <View className="flex-row items-center justify-between px-5 pt-5 pb-2">
+                <Text className="text-lg font-bold text-gray-900">
+                  Scan Reminder Day
+                </Text>
+                <Pressable
+                  onPress={() => setShowDayPicker(false)}
+                  className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center"
+                >
+                  <X size={16} color="#374151" strokeWidth={2} />
+                </Pressable>
+              </View>
+              <Text className="text-sm text-gray-500 px-5 mb-3">
+                Which day of the week should we remind you to scan?
+              </Text>
+              <View className="px-4 pb-8 gap-2">
+                {[1, 2, 3, 4, 5, 6, 7].map((day) => (
+                  <Pressable
+                    key={day}
+                    onPress={() => handleScanDayChange(day)}
+                    className={`flex-row items-center px-4 py-3.5 rounded-xl border ${
+                      scanDay === day
+                        ? 'bg-emerald-50 border-emerald-500'
+                        : 'bg-gray-50 border-gray-200 active:bg-gray-100'
+                    }`}
+                  >
+                    <View className={`w-5 h-5 rounded-full border-2 mr-3 items-center justify-center ${
+                      scanDay === day ? 'border-emerald-500' : 'border-gray-400'
+                    }`}>
+                      {scanDay === day && (
+                        <View className="w-3 h-3 rounded-full bg-emerald-500" />
+                      )}
+                    </View>
+                    <Text className={`text-base ${
+                      scanDay === day ? 'text-emerald-700 font-semibold' : 'text-gray-700'
+                    }`}>
+                      {DAY_NAMES[day]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Pressable>
         </Modal>
       </SafeAreaView>
     </>

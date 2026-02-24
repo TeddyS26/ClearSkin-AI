@@ -5,7 +5,7 @@ import Settings from "../settings";
 import { supabase } from "../../src/lib/supabase";
 import { useRouter } from "expo-router";
 import { useAuth } from "../../src/ctx/AuthContext";
-import { getSubscriptionStatus, openBillingPortal } from "../../src/lib/billing";
+import { getSubscriptionStatus } from "../../src/lib/billing";
 
 jest.mock("../../src/lib/supabase");
 jest.mock("expo-router", () => ({
@@ -18,6 +18,27 @@ jest.mock("../../src/lib/billing", () => ({
   getSubscriptionStatus: jest.fn(),
   openBillingPortal: jest.fn(),
 }));
+
+// Mock notifications module
+jest.mock("../../src/lib/notifications", () => ({
+  getNotificationPreferences: jest.fn().mockResolvedValue(null),
+  updateNotificationPreferences: jest.fn().mockResolvedValue(undefined),
+  scheduleScanReminder: jest.fn().mockResolvedValue(undefined),
+  scheduleRoutineReminders: jest.fn().mockResolvedValue(undefined),
+  cancelScanReminders: jest.fn().mockResolvedValue(undefined),
+  cancelRoutineReminders: jest.fn().mockResolvedValue(undefined),
+  hasNotificationPermission: jest.fn().mockResolvedValue(false),
+  registerForPushNotifications: jest.fn().mockResolvedValue(null),
+}));
+
+// Mock DateTimePicker
+jest.mock("@react-native-community/datetimepicker", () => {
+  const { View } = require("react-native");
+  return {
+    __esModule: true,
+    default: (props: any) => View,
+  };
+});
 
 // Mock lucide-react-native
 jest.mock("lucide-react-native", () => ({
@@ -38,6 +59,8 @@ jest.mock("lucide-react-native", () => ({
   Calendar: "Calendar",
   UserCircle: "UserCircle",
   AlertCircle: "AlertCircle",
+  Bell: "Bell",
+  Clock: "Clock",
 }));
 
 describe("Settings", () => {

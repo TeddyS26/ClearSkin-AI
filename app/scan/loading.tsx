@@ -3,7 +3,7 @@ import { View, Text, ActivityIndicator, Animated, BackHandler, Pressable, AppSta
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { createScanSession, uploadThreePhotos, callAnalyzeFunction, waitForScanComplete, isValidScan, deleteScan, getScan } from "../../src/lib/scan";
-import { hasActiveSubscription, markFreeTrialUsed } from "../../src/lib/billing";
+import { hasActiveSubscription } from "../../src/lib/billing";
 import { Sparkles, Upload, Brain, CheckCircle, Camera } from "lucide-react-native";
 
 export default function Loading() {
@@ -32,10 +32,6 @@ export default function Loading() {
             if (row.status === "complete") {
               processingComplete.current = true;
               if (isValidScan(row)) {
-                // Mark free scan as used if this is a free tier user
-                if (isFreeTierRef.current) {
-                  await markFreeTrialUsed();
-                }
                 router.replace({ pathname: "/scan/result", params: { id: scanIdRef.current, isFreeTier: String(isFreeTierRef.current) } });
               } else {
                 try {
@@ -120,13 +116,6 @@ export default function Loading() {
         if (row.status === "complete") {
           // Check if the scan has valid face detection
           if (isValidScan(row)) {
-            // Mark free scan as used if this is a free tier user
-            console.log("Scan complete - isFreeTier:", isFreeTierRef.current);
-            if (isFreeTierRef.current) {
-              console.log("Marking free trial as used...");
-              await markFreeTrialUsed();
-              console.log("Free trial marked as used");
-            }
             router.replace({ pathname: "/scan/result", params: { id: scanId, isFreeTier: String(isFreeTierRef.current) } });
           } else {
             // Invalid scan - no face detected, delete the scan record
