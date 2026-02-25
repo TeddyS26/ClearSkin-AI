@@ -1,0 +1,65 @@
+name: Version Check
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  version-check:
+    name: Check app.json version bump
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📦 Checkout PR / push branch
+        uses: actions/checkout@v4
+
+      - name: 📦 Fetch base branch for comparison
+        run: git fetch origin ${{ github.event.pull_request.base.ref || 'main' }} --depth=1
+
+      - name: 🔍 Compare version and versionCode
+        run: |
+          # Extract values from the current branch
+          CURRENT_VERSION=$(node -p "require('./app.json').expo.version")
+          CURRENT_VERSION_CODE=$(node -p "require('./app.json').expo.android.versionCode")
+
+          # Extract values from the base (main) branch
+          git show origin/${{ github.event.pull_request.base.ref || 'main' }}:app.json > /tmp/base-app.json
+          BASE_VERSION=$(node -p "require('/tmp/base-app.json').expo.version")
+          BASE_VERSION_CODE=$(node -p "require('/tmp/base-app.json').expo.android.versionCode")
+
+          echo "Base   → version: $BASE_VERSION | versionCode: $BASE_VERSION_CODE"
+          echo "Current→ version: $CURRENT_VERSION | versionCode: $CURRENT_VERSION_CODE"
+
+          ERRORS=""
+
+          if [ "$CURRENT_VERSION" = "$BASE_VERSION" ]; then
+            ERRORS+="❌ expo.version has NOT been updated ($BASE_VERSION → $CURRENT_VERSION)\n"
+          else
+            echo "✅ expo.version updated ($BASE_VERSION → $CURRENT_VERSION)"
+          fi
+
+          if [ "$CURRENT_VERSION_CODE" = "$BASE_VERSION_CODE" ]; then
+            ERRORS+="❌ expo.android.versionCode has NOT been updated ($BASE_VERSION_CODE → $CURRENT_VERSION_CODE)\n"
+          else
+            echo "✅ expo.android.versionCode updated ($BASE_VERSION_CODE → $CURRENT_VERSION_CODE)"
+          fi
+
+          if [ -n "$ERRORS" ]; then
+            echo ""
+            echo "========================================="
+            echo "  VERSION CHECK FAILED"
+            echo "========================================="
+            echo -e "$ERRORS"
+            echo "Please bump both expo.version and expo.android.versionCode in app.json before merging."
+            exit 1
+          fi
+
+          echo ""
+          echo "========================================="
+          echo "  VERSION CHECK PASSED ✅"
+          echo "========================================="
