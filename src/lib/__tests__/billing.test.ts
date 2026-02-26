@@ -788,7 +788,7 @@ describe('billing.ts', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false on database error (fail open)', async () => {
+    it('should return true on database error (fail closed)', async () => {
       const mockUser = { id: 'user-123' };
       (supabase.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser }
@@ -808,7 +808,7 @@ describe('billing.ts', () => {
 
       const result = await hasUsedMonthlyFreeScan();
 
-      expect(result).toBe(false); // Fail open = allow scan
+      expect(result).toBe(true); // Fail closed = treat as exhausted
     });
   });
 
