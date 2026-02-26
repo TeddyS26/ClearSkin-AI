@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
@@ -63,10 +64,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   // Get the Expo push token
   try {
-    const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
 
     if (!projectId) {
-      console.error("Expo project ID is not configured. Please set EXPO_PUBLIC_PROJECT_ID.");
+      console.error("Expo project ID could not be resolved from app config.");
       return null;
     }
 

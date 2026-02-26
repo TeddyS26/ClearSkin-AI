@@ -62,7 +62,7 @@ export default function Home() {
   const userName = user?.email?.split('@')[0] || 'there';
   const [latestScan, setLatestScan] = useState<any>(null);
   const [previousScan, setPreviousScan] = useState<any>(null);
-  const [_loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
   const [canStartScan, setCanStartScan] = useState(false);

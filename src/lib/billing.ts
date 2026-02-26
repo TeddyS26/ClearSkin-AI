@@ -37,12 +37,12 @@ async function getCompletedScanCount(): Promise<number> {
 
     if (error) {
       console.error("Error counting completed scans:", error);
-      return 0;
+      return FREE_SCAN_LIMIT; // Fail closed: treat as exhausted
     }
     return count ?? 0;
   } catch (error) {
     console.error("Error counting completed scans:", error);
-    return 0;
+    return FREE_SCAN_LIMIT; // Fail closed: treat as exhausted
   }
 }
 
