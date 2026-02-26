@@ -1008,7 +1008,7 @@ export default function Settings() {
 
                   {/* Day & time selection - only show when enabled */}
                   {scanReminders && (
-                    <View className="mt-3 ml-13 pl-0.5">
+                    <View className="mt-3 ml-[52px] pl-0.5">
                       <View className="flex-row items-center gap-3">
                         {/* Day Picker Button */}
                         <Pressable
