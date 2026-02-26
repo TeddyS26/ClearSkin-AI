@@ -63,7 +63,13 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   // Get the Expo push token
   try {
-    const projectId = "05dacea1-7feb-4e58-b883-415073689e14";
+    const projectId = process.env.EXPO_PUBLIC_PROJECT_ID;
+
+    if (!projectId) {
+      console.error("Expo project ID is not configured. Please set EXPO_PUBLIC_PROJECT_ID.");
+      return null;
+    }
+
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
 
