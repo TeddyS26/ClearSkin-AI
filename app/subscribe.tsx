@@ -4,7 +4,7 @@ import { useRouter, Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/ctx/AuthContext";
 import { createSubscriptionPayment, hasActiveSubscription } from "../src/lib/billing";
-import { Crown, Check, X, Sparkles, Info } from "lucide-react-native";
+import { Crown, Check, X, Info } from "lucide-react-native";
 import { useStripe } from "@stripe/stripe-react-native";
 
 export default function Subscribe() {
@@ -264,7 +264,7 @@ export default function Subscribe() {
                 <View className="w-6 h-6 bg-emerald-100 rounded-full items-center justify-center mr-3">
                   <Check size={16} color="#10B981" strokeWidth={3} />
                 </View>
-                <Text className="text-base text-gray-700 flex-1">1 free trial scan per account</Text>
+                <Text className="text-base text-gray-700 flex-1">3 free trial scans per account</Text>
               </View>
 
               <View className="flex-row items-center">

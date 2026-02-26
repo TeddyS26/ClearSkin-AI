@@ -1,12 +1,13 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl } from "react-native";
-import { Link, useRouter, useFocusEffect } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../src/ctx/AuthContext";
 import { Camera, TrendingUp, TrendingDown, Droplet, Zap, Crown, Lock, Settings } from "lucide-react-native";
-import { latestCompletedScan, getRecentCompletedScans } from "../../src/lib/scan";
+import { getRecentCompletedScans } from "../../src/lib/scan";
 import { supabase } from "../../src/lib/supabase";
-import { hasActiveSubscription, canScan } from "../../src/lib/billing";
+import { hasActiveSubscription, canScan, getRemainingFreeScans } from "../../src/lib/billing";
+import { registerForPushNotifications } from "../../src/lib/notifications";
 import Svg, { Circle } from "react-native-svg";
 
 // Circular Progress Component
@@ -61,11 +62,13 @@ export default function Home() {
   const userName = user?.email?.split('@')[0] || 'there';
   const [latestScan, setLatestScan] = useState<any>(null);
   const [previousScan, setPreviousScan] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
   const [canStartScan, setCanStartScan] = useState(false);
+  const [remainingFreeScans, setRemainingFreeScans] = useState(0);
   const [checkingSubscription, setCheckingSubscription] = useState(true);
+  const notificationsRegistered = useRef(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -78,6 +81,12 @@ export default function Home() {
       setHasSubscription(subStatus);
       const scanAllowed = await canScan();
       setCanStartScan(scanAllowed);
+
+      // Fetch remaining free scans for non-subscribers
+      if (!subStatus) {
+        const remaining = await getRemainingFreeScans();
+        setRemainingFreeScans(remaining);
+      }
       
       setCheckingSubscription(false);
     } catch (error) {
@@ -94,6 +103,14 @@ export default function Home() {
       }
     })();
   }, [fetchData]);
+
+  // Register for push notifications once when authenticated
+  useEffect(() => {
+    if (user && !notificationsRegistered.current) {
+      notificationsRegistered.current = true;
+      registerForPushNotifications().catch(console.error);
+    }
+  }, [user]);
 
   // Refresh data when home tab is focused (e.g., after completing a scan)
   useFocusEffect(
@@ -118,7 +135,7 @@ export default function Home() {
           table: 'scan_sessions',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
+        (_payload) => {
           // When a scan is inserted or updated, refresh the data
           fetchData();
         }
@@ -136,7 +153,7 @@ export default function Home() {
           table: 'user_profiles',
           filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
+        (_payload) => {
           // When profile is updated (e.g., free scan used), refresh the data
           fetchData();
         }
@@ -253,15 +270,15 @@ export default function Home() {
                   <Text className={`font-bold text-base ${
                     canStartScan ? "text-emerald-700" : "text-gray-700"
                   }`}>
-                    {canStartScan 
-                      ? "Free Trial Available!" 
+                    {canStartScan
+                      ? "Free Trial Available!"
                       : "Free Trial Used"}
                   </Text>
                   <Text className={`text-sm ${
                     canStartScan ? "text-emerald-600" : "text-gray-500"
                   }`}>
-                    {canStartScan 
-                      ? "You have 1 free scan to try ClearSkin AI" 
+                    {canStartScan
+                      ? `You have ${remainingFreeScans} of 3 free scans remaining`
                       : "Subscribe to unlock unlimited scans"}
                   </Text>
                 </View>

@@ -9,7 +9,8 @@ if (!SUPABASE_URL) {
 }
 const FUNC = `${SUPABASE_URL}/functions/v1`;
 
-// Free scan: one-time per account (no cooldown/reset)
+// Free scan: up to 3 free scans per account
+const FREE_SCAN_LIMIT = 3;
 
 export async function getJwt() {
   const { data } = await supabase.auth.getSession();
@@ -19,109 +20,79 @@ export async function getJwt() {
 }
 
 /**
- * Check if user has already used their one-time free scan.
- * Returns true if the free scan has been used, false if still available.
+ * Get count of completed free scans (no subscription).
+ * Used to determine how many of the free trial scans remain.
+ */
+async function getCompletedScanCount(): Promise<number> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return FREE_SCAN_LIMIT; // No user = treat as exhausted
+
+  try {
+    const { count, error } = await supabase
+      .from("scan_sessions")
+      .select("id", { count: 'exact', head: true })
+      .eq("user_id", user.id)
+      .eq("status", "complete")
+      .not("skin_score", "is", null);
+
+    if (error) {
+      console.error("Error counting completed scans:", error);
+      return FREE_SCAN_LIMIT; // Fail closed: treat as exhausted
+    }
+    return count ?? 0;
+  } catch (error) {
+    console.error("Error counting completed scans:", error);
+    return FREE_SCAN_LIMIT; // Fail closed: treat as exhausted
+  }
+}
+
+/**
+ * Get the number of remaining free scans for the user.
+ * Returns 0 if all free scans have been used.
+ */
+export async function getRemainingFreeScans(): Promise<number> {
+  const count = await getCompletedScanCount();
+  return Math.max(0, FREE_SCAN_LIMIT - count);
+}
+
+/**
+ * Check if user has used all their free trial scans.
+ * Returns true if all 3 free scans have been used, false if any remain.
  */
 export async function hasUsedFreeTrial(): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return true; // No user = can't scan anyway
-  
-  try {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("free_scan_used_at")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    
-    // Free scan is used if free_scan_used_at has any value
-    return !!(profile?.free_scan_used_at);
-  } catch (error) {
-    console.error("Error checking free trial status:", error);
-    // Fail open - allow scan if we can't check
-    return false;
-  }
+  const remaining = await getRemainingFreeScans();
+  return remaining <= 0;
 }
 
 /**
- * Mark the one-time free scan as permanently used
- */
-export async function markFreeTrialUsed(): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    console.error("markFreeTrialUsed: No user found");
-    return;
-  }
-  
-  try {
-    // First check if profile exists
-    const { data: existingProfile } = await supabase
-      .from("user_profiles")
-      .select("user_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    
-    if (existingProfile) {
-      // Update existing profile
-      const { error: updateError } = await supabase
-        .from("user_profiles")
-        .update({
-          free_scan_used_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq("user_id", user.id);
-      
-      if (updateError) {
-        console.error("Error updating free scan used:", updateError);
-      } else {
-        console.log("Successfully marked free trial as used (update)");
-      }
-    } else {
-      // Insert new profile
-      const { error: insertError } = await supabase
-        .from("user_profiles")
-        .insert({
-          user_id: user.id,
-          free_scan_used_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-      
-      if (insertError) {
-        console.error("Error inserting free trial used:", insertError);
-      } else {
-        console.log("Successfully marked free trial as used (insert)");
-      }
-    }
-  } catch (error) {
-    console.error("Error marking free trial used:", error);
-  }
-}
-
-/**
- * Check if this scan is a free scan (no subscription, hasn't used one-time free trial)
+ * Check if this scan is a free scan (no subscription, has remaining free scans)
  */
 export async function isFreeScan(): Promise<boolean> {
   const hasSubscription = await hasActiveSubscription();
   if (hasSubscription) return false;
-  
-  const usedFree = await hasUsedFreeTrial();
-  return !usedFree;
+
+  const remaining = await getRemainingFreeScans();
+  return remaining > 0;
 }
 
 /**
- * Check if user can start a scan (has subscription OR hasn't used one-time free trial)
+ * Check if user can start a scan (has subscription OR has remaining free scans)
  */
 export async function canScan(): Promise<boolean> {
   const hasSubscription = await hasActiveSubscription();
   if (hasSubscription) return true;
-  
-  const usedFree = await hasUsedFreeTrial();
-  return !usedFree; // Can scan only if free trial not used yet
+
+  const remaining = await getRemainingFreeScans();
+  return remaining > 0;
 }
 
 // Legacy aliases for backwards compatibility
 export const hasUsedFreeScan = hasUsedFreeTrial;
-export const markFreeScanUsed = markFreeTrialUsed;
 export const hasUsedMonthlyFreeScan = hasUsedFreeTrial;
+// markFreeTrialUsed is no longer needed (free trial tracked by scan count)
+// Kept as no-ops for backward compatibility
+export async function markFreeTrialUsed(): Promise<void> { /* no-op */ }
+export const markFreeScanUsed = markFreeTrialUsed;
 export const markMonthlyFreeScanUsed = markFreeTrialUsed;
 
 // Get payment sheet parameters for native checkout

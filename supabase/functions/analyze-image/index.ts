@@ -485,6 +485,9 @@ Return a strict JSON object with the following structure:
   "skin_age_comparison": string (${userAge ? `comparison to actual age ${userAge}, e.g., "3 years younger than your actual age" or "5 years older than your actual age" or "matches your actual age"` : 'general assessment like "appears youthful" or "shows signs of premature aging"'}),
   "skin_age_confidence": int 0-100 (confidence in the skin age estimate based on photo clarity and visible aging indicators),
 
+  "scan_confidence": int 0-100 (YOUR overall confidence in the accuracy of this entire analysis. Consider: photo quality/lighting, face visibility, obstructions like hair/glasses/masks, makeup presence, image blur. 90+ = excellent clear photos, 70-89 = good but minor issues, 50-69 = fair with some obstructions/poor lighting, below 50 = poor conditions),
+  "scan_quality": "good"|"fair"|"poor" (overall quality of the submitted photos for skin analysis purposes),
+
   "breakout_level": "none"|"minimal"|"moderate"|"high"|"unknown",
   "acne_prone_level": "none"|"minimal"|"moderate"|"high"|"unknown",
 
@@ -1142,6 +1145,8 @@ Each heatmap represents a DIFFERENT skin condition with a DIFFERENT pattern.
       skin_age: parsed.skin_age ?? null,
       skin_age_comparison: parsed.skin_age_comparison ?? null,
       skin_age_confidence: parsed.skin_age_confidence ?? null,
+      scan_confidence: parsed.scan_confidence ?? null,
+      scan_quality: parsed.scan_quality ?? null,
       breakout_level: parsed.breakout_level ?? "unknown",
       acne_prone_level: parsed.acne_prone_level ?? "unknown",
       scarring_level: parsed.scarring_level ?? "unknown",

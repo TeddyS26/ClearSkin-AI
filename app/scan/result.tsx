@@ -7,7 +7,7 @@ import { hasActiveSubscription } from "../../src/lib/billing";
 import { supabase } from "../../src/lib/supabase";
 import HeatmapOverlay from "../../components/HeatmapOverlay";
 import HeatmapLegend from "../../components/HeatmapLegend";
-import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package, ArrowLeft, Lock, Crown, Clock } from "lucide-react-native";
+import { TrendingUp, AlertCircle, MapPin, Sun, Moon, Package, ArrowLeft, Lock, Crown, Clock, ShieldCheck } from "lucide-react-native";
 
 type Mode = "breakouts" | "oiliness" | "dryness" | "redness";
 const MODES: Mode[] = ["breakouts", "oiliness", "dryness", "redness"];
@@ -119,9 +119,40 @@ export default function Result() {
         </Pressable>
 
         <Text className="text-2xl font-bold text-gray-900 mb-1">Your Results</Text>
-        <Text className="text-sm text-gray-600 mb-6">
+        <Text className="text-sm text-gray-600 mb-3">
           {isFreeTier ? "Free trial - Limited preview" : "Complete skin analysis and recommendations"}
         </Text>
+
+        {/* Scan Confidence Badge */}
+        {row.scan_confidence != null && (
+          <View className={`flex-row items-center self-start px-3 py-2 rounded-xl mb-6 ${
+            row.scan_quality === 'good' ? 'bg-emerald-50' :
+            row.scan_quality === 'fair' ? 'bg-amber-50' :
+            'bg-red-50'
+          }`}>
+            <ShieldCheck size={16} color={
+              row.scan_quality === 'good' ? '#10B981' :
+              row.scan_quality === 'fair' ? '#F59E0B' :
+              '#EF4444'
+            } strokeWidth={2} />
+            <Text className={`text-sm font-semibold ml-1.5 ${
+              row.scan_quality === 'good' ? 'text-emerald-700' :
+              row.scan_quality === 'fair' ? 'text-amber-700' :
+              'text-red-700'
+            }`}>
+              {row.scan_confidence}% confidence
+            </Text>
+            <Text className={`text-xs ml-1.5 ${
+              row.scan_quality === 'good' ? 'text-emerald-600' :
+              row.scan_quality === 'fair' ? 'text-amber-600' :
+              'text-red-600'
+            }`}>
+              {row.scan_quality === 'good' ? '— Great scan quality' :
+               row.scan_quality === 'fair' ? '— Fair scan quality' :
+               '— Poor scan quality, consider retaking'}
+            </Text>
+          </View>
+        )}
 
         {/* Free Tier Upgrade Banner */}
         {isFreeTier && (
